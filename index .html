@@ -1,0 +1,1337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Peptide Protocol Tracker v5.5</title>
+<style>
+:root {
+  --bg:#09090b; --bg-card:#111113; --bg-input:#18181b;
+  --blue:#3b82f6; --blue-dim:rgba(59,130,246,0.12);
+  --green:#22c55e; --green-dim:rgba(34,197,94,0.12);
+  --orange:#f97316; --orange-dim:rgba(249,115,22,0.12);
+  --red:#ef4444; --red-dim:rgba(239,68,68,0.12);
+  --cyan:#22d3ee; --cyan-dim:rgba(34,211,238,0.1);
+  --purple:#a78bfa; --purple-dim:rgba(167,139,250,0.12);
+  --yellow:#facc15; --yellow-dim:rgba(250,204,21,0.12);
+  --border:#222226; --border-hi:#2e2e34;
+  --text:#f4f4f5; --muted:#71717a;
+  --mono:ui-monospace,Menlo,monospace;
+  --sans:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:100vh;padding-bottom:80px;}
+
+.site-header{border-bottom:1px solid var(--border);padding:14px 20px;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(to bottom,#0f0f12,var(--bg));gap:10px;}
+.site-header h1{font-family:var(--mono);font-size:0.9rem;font-weight:700;color:var(--cyan);}
+.site-header h1 span{color:var(--muted);font-weight:400;}
+.ver{font-family:var(--mono);font-size:0.65rem;background:var(--cyan-dim);color:var(--cyan);border:1px solid rgba(34,211,238,0.2);padding:3px 8px;border-radius:4px;white-space:nowrap;}
+
+.btn-save-backup{background:linear-gradient(135deg,#1a2a1a,#0f1a0f);border:1px solid rgba(34,197,94,0.3);color:var(--green);font-family:var(--mono);font-size:0.68rem;font-weight:700;padding:7px 13px;border-radius:6px;cursor:pointer;display:flex;align-items:center;gap:6px;white-space:nowrap;-webkit-tap-highlight-color:transparent;transition:background 0.15s,border-color 0.15s;}
+.btn-save-backup:active{background:var(--green-dim);}
+.save-pulse{width:6px;height:6px;border-radius:50%;background:var(--green);box-shadow:0 0 5px var(--green);flex-shrink:0;}
+
+.save-bar{display:flex;align-items:center;justify-content:space-between;padding:8px 20px;background:#0d1117;border-bottom:1px solid var(--border);font-family:var(--mono);font-size:0.68rem;}
+.save-indicator{display:flex;align-items:center;gap:6px;}
+.save-dot{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 6px var(--green);}
+.save-dot.saving{background:var(--orange);box-shadow:0 0 6px var(--orange);animation:pulse 0.6s infinite;}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.4;}}
+.save-text{color:var(--muted);}
+.save-counts{color:#334155;font-size:0.62rem;}
+
+.nav{display:flex;gap:4px;padding:10px 20px;border-bottom:1px solid var(--border);overflow-x:auto;scrollbar-width:none;}
+.nav::-webkit-scrollbar{display:none;}
+.nav-btn{font-size:0.8rem;font-weight:600;padding:8px 14px;border-radius:6px;border:1px solid transparent;background:none;color:var(--muted);cursor:pointer;white-space:nowrap;font-family:var(--sans);-webkit-tap-highlight-color:transparent;}
+.nav-btn.active{background:var(--blue-dim);color:var(--blue);border-color:rgba(59,130,246,0.25);}
+
+.wrap{max-width:1100px;margin:0 auto;padding:18px;}
+.tab{display:none;} .tab.active{display:block;}
+
+.card{background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:16px;}
+.card-title{font-family:var(--mono);font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.card-title .dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
+
+.fg{margin-bottom:10px;}
+label{display:block;font-family:var(--mono);font-size:0.63rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:5px;}
+input,select,textarea{width:100%;background:var(--bg-input);border:1px solid var(--border);color:var(--text);padding:10px 12px;border-radius:6px;font-family:var(--sans);font-size:0.9rem;outline:none;transition:border-color 0.15s;-webkit-appearance:none;}
+input:focus,select:focus,textarea:focus{border-color:var(--blue);}
+select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%2371717a' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;padding-right:28px;}
+
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;}
+.g4{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:10px;}
+@media(max-width:700px){.g4{grid-template-columns:1fr 1fr;}.g3{grid-template-columns:1fr 1fr;}}
+@media(max-width:420px){.g4,.g3,.g2{grid-template-columns:1fr;}}
+
+.result-box{background:linear-gradient(135deg,#0c1220,#08080a);border:1px solid #1a2340;border-radius:10px;padding:18px;display:flex;flex-direction:column;align-items:center;gap:5px;position:relative;overflow:hidden;}
+.result-box::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--blue),var(--cyan));}
+.res-lbl{font-family:var(--mono);font-size:0.6rem;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);}
+.res-val{font-family:var(--mono);font-size:2.4rem;font-weight:700;color:var(--green);line-height:1;}
+.res-desc{font-size:0.8rem;color:var(--muted);text-align:center;max-width:360px;}
+.res-sub{font-family:var(--mono);font-size:0.68rem;color:#334155;background:#0f1929;padding:3px 10px;border-radius:4px;}
+
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px;}
+@media(max-width:600px){.stats-row{grid-template-columns:1fr 1fr;}}
+.stat-box{background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:12px 14px;}
+.stat-num{font-family:var(--mono);font-size:1.4rem;font-weight:700;}
+.stat-lbl{font-family:var(--mono);font-size:0.58rem;text-transform:uppercase;color:var(--muted);letter-spacing:0.5px;margin-top:2px;}
+
+.proto-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px;margin-bottom:16px;}
+.proto-card{background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:14px;position:relative;overflow:hidden;}
+.proto-card::after{content:'';position:absolute;top:0;left:0;right:0;height:3px;border-radius:3px 3px 0 0;}
+.proto-card.inj::after{background:linear-gradient(90deg,var(--blue),#60a5fa);}
+.proto-card.nas::after{background:linear-gradient(90deg,var(--green),#4ade80);}
+.proto-card.editing-card{border-color:var(--orange);box-shadow:0 0 0 1px var(--orange-dim);}
+
+.proto-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;}
+.proto-name{font-weight:700;font-size:0.88rem;line-height:1.3;}
+.proto-badge{font-family:var(--mono);font-size:0.58rem;font-weight:600;text-transform:uppercase;padding:2px 6px;border-radius:4px;flex-shrink:0;margin-left:6px;}
+.badge-inj{background:var(--blue-dim);color:var(--blue);}
+.badge-nas{background:var(--green-dim);color:var(--green);}
+
+.proto-row{display:flex;justify-content:space-between;font-size:0.77rem;padding:4px 0;color:var(--muted);border-bottom:1px solid #17171a;}
+.proto-row:last-of-type{border-bottom:none;}
+.proto-val{color:var(--text);font-weight:500;text-align:right;max-width:60%;}
+.proto-metric{margin-top:8px;background:#0d1520;border:1px solid #1a2840;border-radius:6px;padding:7px 10px;display:flex;justify-content:space-between;align-items:center;}
+.proto-metric-lbl{font-family:var(--mono);font-size:0.6rem;text-transform:uppercase;color:#4a6080;}
+.proto-metric-val{font-family:var(--mono);font-size:0.92rem;font-weight:700;color:var(--orange);}
+
+.cycle-section{margin-top:10px;border-top:1px solid #1a1a1e;padding-top:10px;}
+.cycle-title{font-family:var(--mono);font-size:0.6rem;text-transform:uppercase;letter-spacing:0.8px;color:var(--muted);margin-bottom:7px;}
+.cycle-phase-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;}
+.cycle-phase-badge{font-family:var(--mono);font-size:0.62rem;font-weight:700;padding:3px 9px;border-radius:4px;text-transform:uppercase;letter-spacing:0.5px;}
+.cycle-phase-active{background:var(--green-dim);color:var(--green);}
+.cycle-phase-break{background:var(--purple-dim);color:var(--purple);}
+.cycle-days-left{font-family:var(--mono);font-size:0.78rem;font-weight:700;}
+.cycle-bar-bg{height:5px;background:#1c1c20;border-radius:3px;overflow:hidden;}
+.cycle-bar-fill{height:100%;border-radius:3px;transition:width 0.3s;}
+.cycle-sub{font-family:var(--mono);font-size:0.6rem;color:var(--muted);margin-top:4px;display:flex;justify-content:space-between;}
+
+.inv-section{margin-top:10px;border-top:1px solid #1a1a1e;padding-top:10px;}
+.inv-title{font-family:var(--mono);font-size:0.6rem;text-transform:uppercase;letter-spacing:0.8px;color:var(--muted);margin-bottom:7px;}
+.inv-row{display:flex;justify-content:space-between;align-items:center;font-size:0.77rem;margin-bottom:4px;}
+.inv-lbl{color:var(--muted);}
+.inv-val{font-family:var(--mono);font-weight:600;}
+
+.expiry-bar-wrap{margin-top:6px;}
+.expiry-info{display:flex;justify-content:space-between;font-family:var(--mono);font-size:0.62rem;margin-bottom:3px;}
+.bar-bg{height:4px;background:#1c1c20;border-radius:2px;overflow:hidden;}
+.bar-fill{height:100%;border-radius:2px;transition:width 0.3s;}
+.vol-bar-wrap{margin-top:5px;}
+
+.status-badge{display:inline-block;font-family:var(--mono);font-size:0.6rem;font-weight:700;padding:2px 7px;border-radius:4px;text-transform:uppercase;}
+.status-ok{background:var(--green-dim);color:var(--green);}
+.status-warn{background:var(--yellow-dim);color:var(--yellow);}
+.status-exp{background:var(--red-dim);color:var(--red);animation:pulse 1.5s infinite;}
+.status-none{background:#1c1c20;color:var(--muted);}
+
+.card-actions{display:flex;gap:6px;margin-top:10px;}
+.btn-card-edit{flex:1;background:var(--orange-dim);color:var(--orange);border:1px solid rgba(249,115,22,0.2);border-radius:5px;padding:7px;font-size:0.72rem;font-weight:600;cursor:pointer;font-family:var(--sans);-webkit-tap-highlight-color:transparent;}
+.btn-card-inv{flex:1;background:var(--blue-dim);color:var(--blue);border:1px solid rgba(59,130,246,0.2);border-radius:5px;padding:7px;font-size:0.72rem;font-weight:600;cursor:pointer;font-family:var(--sans);-webkit-tap-highlight-color:transparent;}
+.btn-card-dose{width:100%;background:var(--green-dim);color:var(--green);border:1px solid rgba(34,197,94,0.2);border-radius:5px;padding:8px;font-size:0.78rem;font-weight:700;cursor:pointer;font-family:var(--sans);margin-top:6px;-webkit-tap-highlight-color:transparent;}
+.btn-card-dose:disabled{opacity:0.3;cursor:not-allowed;}
+
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:100;display:flex;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(4px);}
+.modal-overlay.hidden{display:none;}
+.modal{background:#13141a;border:1px solid var(--border-hi);border-radius:12px;padding:20px;width:100%;max-width:500px;max-height:92vh;overflow-y:auto;}
+.modal-title{font-family:var(--mono);font-size:0.78rem;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:16px;display:flex;align-items:center;gap:8px;}
+.modal-section{font-family:var(--mono);font-size:0.62rem;text-transform:uppercase;letter-spacing:0.8px;color:var(--muted);margin:14px 0 8px;padding-bottom:4px;border-bottom:1px solid var(--border);}
+.modal-actions{display:flex;gap:8px;margin-top:14px;}
+.modal-actions button{flex:1;padding:11px;border-radius:6px;font-weight:600;font-size:0.85rem;cursor:pointer;border:none;font-family:var(--sans);}
+.btn-save-modal{background:var(--blue);color:#fff;}
+.btn-cancel-modal{background:var(--bg-input);color:var(--muted);}
+
+.backup-modal{background:#0d1a0d;border:1px solid rgba(34,197,94,0.25);border-radius:12px;padding:20px;width:100%;max-width:560px;max-height:92vh;overflow-y:auto;}
+.backup-modal textarea{font-family:var(--mono);font-size:0.68rem;line-height:1.5;color:#a0c8a0;background:#071007;border:1px solid rgba(34,197,94,0.15);border-radius:6px;padding:12px;resize:vertical;min-height:160px;}
+
+.table-shell{border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-top:12px;overflow-x:auto;}
+table{width:100%;border-collapse:collapse;font-size:0.8rem;min-width:500px;}
+th{background:#0f0f12;color:var(--muted);font-family:var(--mono);font-size:0.6rem;text-transform:uppercase;letter-spacing:0.5px;padding:9px 12px;text-align:left;border-bottom:1px solid var(--border);font-weight:600;}
+td{padding:9px 12px;border-bottom:1px solid #16161a;vertical-align:middle;}
+tr:last-child td{border-bottom:none;}
+.empty-state{text-align:center;color:var(--muted);padding:28px;font-family:var(--mono);font-size:0.73rem;}
+.pill{display:inline-block;font-family:var(--mono);font-size:0.68rem;padding:2px 7px;border-radius:4px;background:var(--bg-input);color:var(--muted);}
+
+.btn-primary{background:var(--blue);color:#fff;border:none;padding:12px 18px;border-radius:6px;font-family:var(--sans);font-weight:600;font-size:0.88rem;cursor:pointer;width:100%;margin-top:10px;-webkit-tap-highlight-color:transparent;}
+.btn-primary.green{background:var(--green);color:#000;}
+.btn-primary.orange{background:var(--orange);color:#000;}
+.btn-sm{padding:4px 9px;border:none;border-radius:4px;font-size:0.7rem;cursor:pointer;font-weight:600;-webkit-tap-highlight-color:transparent;}
+.btn-edit{background:var(--orange-dim);color:var(--orange);}
+.btn-del{background:var(--red-dim);color:var(--red);}
+.util-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;align-items:center;}
+.btn-util{background:none;border:1px solid var(--border);color:var(--muted);font-size:0.73rem;padding:7px 12px;border-radius:5px;cursor:pointer;font-family:var(--sans);-webkit-tap-highlight-color:transparent;}
+.btn-util.danger{color:var(--red);border-color:rgba(239,68,68,0.2);}
+
+.tl-item{display:flex;gap:14px;padding:14px 0;border-bottom:1px solid var(--border);}
+.tl-item:last-child{border-bottom:none;}
+.tl-dot-wrap{display:flex;flex-direction:column;align-items:center;padding-top:3px;}
+.tl-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+.tl-line{width:1px;flex:1;background:var(--border);margin-top:4px;min-height:20px;}
+.tl-day{font-family:var(--mono);font-size:0.68rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:5px;}
+.tl-entry{font-size:0.82rem;color:var(--muted);line-height:1.65;}
+.tl-entry strong{color:var(--text);}
+
+/* ── PRINT OVERLAY ── */
+.print-overlay{position:fixed;inset:0;z-index:300;background:#fff;color:#111;overflow-y:auto;display:none;font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;}
+.print-overlay.visible{display:block;}
+.print-overlay-inner{max-width:720px;margin:0 auto;padding:32px 24px;}
+.print-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:28px;padding-bottom:16px;border-bottom:2px solid #111;}
+.print-header h2{font-size:1.1rem;font-weight:800;letter-spacing:0.5px;color:#111;}
+.print-header p{font-size:0.72rem;color:#666;margin-top:4px;}
+.print-close-btn{background:#111;color:#fff;border:none;border-radius:6px;padding:9px 16px;font-size:0.82rem;font-weight:700;cursor:pointer;white-space:nowrap;-webkit-tap-highlight-color:transparent;}
+.print-tl-item{display:flex;gap:14px;padding:14px 0;border-bottom:1px solid #ddd;}
+.print-tl-item:last-child{border-bottom:none;}
+.print-tl-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;margin-top:4px;}
+.print-tl-freq{font-size:0.68rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;}
+.print-tl-name{font-weight:700;font-size:0.9rem;color:#111;}
+.print-tl-detail{font-size:0.78rem;color:#444;margin-top:2px;line-height:1.55;}
+.print-tl-note{font-size:0.73rem;color:#666;margin-top:4px;font-style:italic;}
+.print-footer{margin-top:28px;padding-top:14px;border-top:1px solid #ddd;font-size:0.65rem;color:#999;display:flex;justify-content:space-between;}
+.print-action-row{display:flex;gap:10px;margin-bottom:24px;flex-wrap:wrap;}
+.print-action-btn{flex:1;min-width:140px;padding:11px;border-radius:6px;font-size:0.82rem;font-weight:700;cursor:pointer;border:none;font-family:var(--sans);-webkit-tap-highlight-color:transparent;}
+.print-action-share{background:#111;color:#fff;}
+.print-action-copy{background:#f0f0f0;color:#111;}
+
+@media print {
+  body * { visibility: hidden !important; }
+  .print-overlay, .print-overlay * { visibility: visible !important; }
+  .print-overlay { position: absolute; top: 0; left: 0; width: 100%; background: #fff !important; }
+  .print-action-row, .print-close-btn { display: none !important; }
+}
+
+.flash{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(12px);background:var(--green);color:#000;font-weight:700;font-size:0.78rem;padding:10px 18px;border-radius:20px;z-index:400;opacity:0;transition:all 0.2s;pointer-events:none;white-space:nowrap;font-family:var(--sans);}
+.flash.show{opacity:1;transform:translateX(-50%) translateY(0);}
+.flash.err{background:var(--red);color:#fff;}
+.flash.info{background:var(--blue);color:#fff;}
+
+.saved-badge{font-family:var(--mono);font-size:0.6rem;color:var(--green);background:var(--green-dim);border:1px solid rgba(34,197,94,0.2);padding:2px 7px;border-radius:4px;margin-left:auto;}
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <h1>PEPTIDE PROTOCOL <span>// TRACKER</span></h1>
+  <div style="display:flex;align-items:center;gap:8px;">
+    <span class="ver">v5.5</span>
+    <button class="btn-save-backup" onclick="openBackupModal()">
+      <span class="save-pulse"></span>💾 Save Backup
+    </button>
+  </div>
+</header>
+
+<div class="save-bar">
+  <div class="save-indicator">
+    <div class="save-dot" id="saveDot"></div>
+    <span class="save-text" id="saveText">All data saved to device</span>
+  </div>
+  <span class="save-counts" id="saveCounts"></span>
+</div>
+
+<nav class="nav">
+  <button class="nav-btn active" onclick="switchTab('dash')">⚡ Calculator</button>
+  <button class="nav-btn" onclick="switchTab('ledger')">📋 Ledger</button>
+  <button class="nav-btn" onclick="switchTab('timeline')">📅 Timeline</button>
+  <button class="nav-btn" onclick="switchTab('add')">＋ Add Protocol</button>
+</nav>
+
+<!-- CALCULATOR TAB -->
+<div id="tab-dash" class="tab active wrap">
+  <div class="stats-row">
+    <div class="stat-box"><div class="stat-num" id="statProtos" style="color:var(--cyan)">0</div><div class="stat-lbl">Protocols</div></div>
+    <div class="stat-box"><div class="stat-num" id="statLogs" style="color:var(--blue)">0</div><div class="stat-lbl">Log Entries</div></div>
+    <div class="stat-box"><div class="stat-num" id="statExpiring" style="color:var(--orange)">—</div><div class="stat-lbl">Expiring Soon</div></div>
+    <div class="stat-box"><div class="stat-num" id="statLowStock" style="color:var(--red)">—</div><div class="stat-lbl">Low Stock</div></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title"><span class="dot" style="background:var(--cyan)"></span>Syringe & Dose Calculator</div>
+    <div class="g4">
+      <div class="fg"><label>Protocol Profile</label><select id="calcProfile" onchange="syncProfile()"></select></div>
+      <div class="fg"><label>Vial Content (mg)</label><input type="number" id="vialMg" value="10" min="0.001" step="any" oninput="calc()"></div>
+      <div class="fg"><label>Diluent Volume (mL)</label><input type="number" id="dilVol" value="2" min="0.1" step="0.1" oninput="calc()"></div>
+      <div class="fg"><label id="doseLbl">Target Dose (mcg)</label><input type="number" id="doseTgt" value="250" min="0" step="any" oninput="calc()"></div>
+    </div>
+    <div class="result-box">
+      <div class="res-lbl" id="resLbl">Syringe Pull</div>
+      <div class="res-val" id="resVal">—</div>
+      <div class="res-desc" id="resDesc"></div>
+      <div class="res-sub" id="resSub"></div>
+    </div>
+  </div>
+
+  <div style="font-family:var(--mono);font-size:0.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px;">
+    Protocol Cards &nbsp;<span style="color:var(--border-hi)">— ✏️ edit protocol &nbsp;·&nbsp; 📦 edit inventory &nbsp;·&nbsp; ✓ log dose</span>
+  </div>
+  <div id="emptyState" style="display:none;text-align:center;padding:48px 20px;color:var(--muted);font-family:var(--mono);">
+    <div style="font-size:2rem;margin-bottom:12px;">💉</div>
+    <div style="font-size:0.8rem;font-weight:700;color:var(--text);margin-bottom:6px;">No protocols yet</div>
+    <div style="font-size:0.72rem;margin-bottom:18px;">Add your first protocol to get started.</div>
+    <button onclick="switchTab('add')" style="background:var(--green-dim);color:var(--green);border:1px solid rgba(34,197,94,0.25);border-radius:6px;padding:10px 20px;font-size:0.82rem;font-weight:700;cursor:pointer;font-family:var(--sans);">＋ Add Protocol</button>
+  </div>
+  <div class="proto-grid" id="protoGrid"></div>
+</div>
+
+<!-- LEDGER TAB -->
+<div id="tab-ledger" class="tab wrap">
+  <div class="card">
+    <div class="card-title"><span class="dot" style="background:var(--blue)"></span>Log Administration Session</div>
+    <div class="g2">
+      <div class="fg"><label>Protocol</label><select id="logProfile"></select></div>
+      <div class="fg"><label>Dose Administered</label><input type="text" id="logDose" placeholder="e.g. 250 mcg / 5 units"></div>
+    </div>
+    <div class="fg"><label>Injection Site / Notes</label><input type="text" id="logNotes" placeholder="e.g. Left abdomen, morning dose"></div>
+    <div class="fg"><label>Date &amp; Time <span style="color:var(--muted);font-weight:400;text-transform:none;font-size:0.62rem">(defaults to now — edit if logging retroactively)</span></label><input type="datetime-local" id="logDateTime"></div>
+    <input type="hidden" id="editIdx" value="">
+    <button class="btn-primary" id="logBtn" onclick="saveLog()">💾 Save Log Entry</button>
+  </div>
+  <div class="card">
+    <div class="card-title"><span class="dot" style="background:var(--purple)"></span>Administration History<span class="saved-badge">✓ Saved to Device</span></div>
+    <div class="table-shell">
+      <table>
+        <thead><tr><th>Date / Time</th><th>Protocol</th><th>Dose</th><th>Notes</th><th style="text-align:right">Actions</th></tr></thead>
+        <tbody id="ledgerBody"></tbody>
+      </table>
+    </div>
+    <div class="util-row">
+      <button class="btn-util" onclick="openBackupModal()">💾 Save Backup</button>
+      <button class="btn-util" onclick="toggleImport()">📋 Restore Backup</button>
+      <button class="btn-util danger" style="margin-left:auto" onclick="clearLedger()">🗑 Clear Ledger</button>
+    </div>
+  </div>
+  <div class="card" id="importPanel" style="display:none">
+    <div class="card-title"><span class="dot" style="background:var(--orange)"></span>Restore from Backup JSON</div>
+    <textarea id="importText" rows="5" placeholder="Paste your full backup JSON here..." style="font-family:var(--mono);font-size:0.73rem;resize:vertical"></textarea>
+    <div class="g2" style="margin-top:10px">
+      <button class="btn-primary orange" onclick="importFromPaste()">Restore</button>
+      <button class="btn-primary" style="background:var(--bg-input);color:var(--muted);border:1px solid var(--border)" onclick="toggleImport()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- TIMELINE TAB -->
+<div id="tab-timeline" class="tab wrap">
+  <div class="card">
+    <div class="card-title">
+      <span class="dot" style="background:var(--orange)"></span>Protocol Schedule
+      <button class="btn-util" onclick="openPrintOverlay()" style="margin-left:auto;border-color:rgba(249,115,22,0.3);color:var(--orange);">🖨️ Print / Share</button>
+    </div>
+    <div id="timelineBody"></div>
+  </div>
+</div>
+
+<!-- ADD PROTOCOL TAB -->
+<div id="tab-add" class="tab wrap">
+  <div class="card">
+    <div class="card-title"><span class="dot" style="background:var(--green)"></span>Add Custom Protocol<span class="saved-badge">✓ Saved to Device</span></div>
+    <div class="fg"><label>Peptide / Compound Name</label><input type="text" id="newName" placeholder="e.g. Tirzepatide"></div>
+    <div class="g3">
+      <div class="fg"><label>Vial Content (mg)</label><input type="number" id="newMg" value="10" min="0.001" step="any"></div>
+      <div class="fg"><label>Diluent Volume (mL)</label><input type="number" id="newVol" value="2" step="0.1"></div>
+      <div class="fg"><label>Dose Unit</label><select id="newUnit"><option value="mcg">mcg</option><option value="mg">mg</option></select></div>
+    </div>
+    <div id="newDoseSubQ" class="fg">
+      <label id="newDoseLbl">Target Dose</label>
+      <input type="number" id="newDose" value="250" step="any">
+    </div>
+    <div id="newDoseNasal" class="g2" style="display:none">
+      <div class="fg"><label>Target Dose (mcg)</label><input type="number" id="newDoseNas" value="200" step="any"></div>
+      <div class="fg"><label>Spray Volume per Actuation (µL)</label><input type="number" id="newSprayVol" value="100" step="10"></div>
+    </div>
+    <div class="g2">
+      <div class="fg"><label>Route</label>
+        <select id="newRoute" onchange="toggleNewRouteFields()">
+          <option value="inj">SubQ Injectable</option>
+          <option value="nas">Nasal Spray</option>
+        </select>
+      </div>
+      <div class="fg"><label>Frequency / Schedule</label><input type="text" id="newFreq" placeholder="e.g. Weekly on Fridays"></div>
+    </div>
+    <div class="fg"><label>Date Started</label><input type="date" id="newDateStarted"></div>
+    <div class="g2">
+      <div class="fg"><label>Cycle Length (weeks)</label><input type="number" id="newCycleWeeks" placeholder="e.g. 8" min="0" step="0.5"></div>
+      <div class="fg"><label>Break Length (weeks)</label><input type="number" id="newBreakWeeks" placeholder="e.g. 4" min="0" step="0.5"></div>
+    </div>
+    <div style="font-size:0.75rem;color:var(--muted);margin-top:-4px;margin-bottom:8px;line-height:1.5">Leave blank for continuous protocols with no on/off cycle.</div>
+    <div class="fg"><label>Notes &amp; Special Instructions</label><textarea id="newNotes" rows="4" placeholder="e.g. Take on empty stomach, 30 min before bed..." style="font-family:var(--sans);font-size:0.85rem;line-height:1.55;resize:vertical;min-height:80px;"></textarea></div>
+    <button class="btn-primary green" onclick="addProtocol()">＋ Save Protocol to Dashboard</button>
+  </div>
+</div>
+
+<!-- PROTOCOL EDIT MODAL -->
+<div class="modal-overlay hidden" id="editModal">
+  <div class="modal">
+    <div class="modal-title"><span style="width:6px;height:6px;border-radius:50%;background:var(--orange);display:inline-block;flex-shrink:0"></span>Edit Protocol — <span id="modalProtocolName" style="color:var(--text)"></span></div>
+    <input type="hidden" id="modalKey">
+    <div class="fg"><label>Protocol Name</label><input type="text" id="modalName"></div>
+    <div class="g3">
+      <div class="fg"><label>Vial Content (mg)</label><input type="number" id="modalMg" step="any" min="0.001"></div>
+      <div class="fg"><label>Diluent Volume (mL)</label><input type="number" id="modalVol" step="0.1"></div>
+      <div class="fg"><label>Dose Unit</label><select id="modalUnit"><option value="mcg">mcg</option><option value="mg">mg</option></select></div>
+    </div>
+    <div id="modalDoseSubQ" class="fg">
+      <label id="modalDoseLbl">Target Dose</label>
+      <input type="number" id="modalDose" step="any">
+    </div>
+    <div id="modalDoseNasal" class="g2" style="display:none">
+      <div class="fg"><label>Target Dose (mcg)</label><input type="number" id="modalDoseNas" step="any"></div>
+      <div class="fg"><label>Spray Volume per Actuation (µL)</label><input type="number" id="modalSprayVol" value="100" step="10"></div>
+    </div>
+    <div class="g2">
+      <div class="fg"><label>Route</label>
+        <select id="modalRoute" onchange="toggleModalRouteFields()">
+          <option value="inj">SubQ Injectable</option>
+          <option value="nas">Nasal Spray</option>
+        </select>
+      </div>
+      <div class="fg"><label>Frequency / Schedule</label><input type="text" id="modalFreq"></div>
+    </div>
+    <div class="fg"><label>Date Started</label><input type="date" id="modalDateStarted"></div>
+    <div class="g2">
+      <div class="fg"><label>Cycle Length (weeks)</label><input type="number" id="modalCycleWeeks" placeholder="e.g. 8" min="0" step="0.5"></div>
+      <div class="fg"><label>Break Length (weeks)</label><input type="number" id="modalBreakWeeks" placeholder="e.g. 4" min="0" step="0.5"></div>
+    </div>
+    <div style="font-size:0.75rem;color:var(--muted);margin-top:-4px;margin-bottom:8px;line-height:1.5">Leave blank for continuous protocols with no on/off cycle.</div>
+    <div class="fg"><label>Notes &amp; Special Instructions</label><textarea id="modalNotes" rows="4" style="font-family:var(--sans);font-size:0.85rem;line-height:1.55;resize:vertical;min-height:80px;"></textarea></div>
+    <div class="modal-actions">
+      <button class="btn-save-modal" onclick="saveModalEdit()">✓ Save Changes</button>
+      <button class="btn-cancel-modal" onclick="closeEditModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- INVENTORY EDIT MODAL -->
+<div class="modal-overlay hidden" id="invModal">
+  <div class="modal">
+    <div class="modal-title"><span style="width:6px;height:6px;border-radius:50%;background:var(--blue);display:inline-block;flex-shrink:0"></span>Inventory — <span id="invModalName" style="color:var(--text)"></span></div>
+    <input type="hidden" id="invModalKey">
+    <div class="modal-section">Vial Stock</div>
+    <div class="g2">
+      <div class="fg"><label>Sealed Vials in Stock (unopened)</label><input type="number" id="invVials" value="0" min="0" step="1"></div>
+      <div class="fg"><label>Current Open Vial — Volume Remaining (mL)</label><input type="number" id="invVolRemaining" value="0" min="0" step="0.01" placeholder="e.g. 2.00"></div>
+    </div>
+    <div class="modal-section">Reconstitution</div>
+    <div class="g2">
+      <div class="fg"><label>Date Reconstituted (current open vial)</label><input type="date" id="invReconDate"></div>
+      <div class="fg"><label>Stability Window (days refrigerated)</label><input type="number" id="invExpDays" value="28" min="1" step="1"></div>
+    </div>
+    <div style="font-size:0.75rem;color:var(--muted);margin-top:-4px;margin-bottom:8px;line-height:1.5">Typical stability with BAC water: most peptides = 28d · NAD+ = 30d · GLP-1 agonists = 42d</div>
+    <div class="modal-actions">
+      <button class="btn-save-modal" onclick="saveInvModal()">✓ Save Inventory</button>
+      <button class="btn-cancel-modal" onclick="closeInvModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- BACKUP MODAL -->
+<div class="modal-overlay hidden" id="backupModal">
+  <div class="backup-modal">
+    <div class="modal-title" style="color:var(--green);">
+      <span style="width:6px;height:6px;border-radius:50%;background:var(--green);display:inline-block;flex-shrink:0"></span>
+      Save Data Backup
+    </div>
+    <div style="background:#071007;border:1px solid rgba(34,197,94,0.15);border-radius:6px;padding:10px 12px;margin-bottom:12px;font-family:var(--mono);font-size:0.65rem;color:#4a8a4a;line-height:1.6;" id="backupPreview"></div>
+    <button id="backupDownloadBtn" onclick="downloadBackup()" style="width:100%;background:linear-gradient(135deg,#0d1f2d,#091520);color:var(--cyan);border:1px solid rgba(34,211,238,0.3);font-weight:700;font-size:0.88rem;padding:12px;border-radius:6px;font-family:var(--sans);cursor:pointer;margin-bottom:6px;">⬇️ Download Backup (.json)</button>
+    <button id="backupCopyBtn" onclick="tryCopyBackup()" style="width:100%;background:var(--green);color:#000;font-weight:700;font-size:0.88rem;padding:12px;border-radius:6px;border:none;font-family:var(--sans);cursor:pointer;margin-bottom:8px;">📋 Copy to Clipboard</button>
+    <p style="font-size:0.75rem;color:var(--muted);margin-bottom:10px;line-height:1.5;text-align:center;">If copy doesn't work, select all text below and copy manually.</p>
+    <div id="backupJsonBox" contenteditable="false" style="background:#071007;border:1px solid rgba(34,197,94,0.2);border-radius:6px;padding:10px;font-family:var(--mono);font-size:0.6rem;color:#4a8a4a;line-height:1.5;max-height:160px;overflow-y:auto;word-break:break-all;-webkit-user-select:all;user-select:all;"></div>
+    <button class="btn-primary" style="background:var(--bg-input);color:var(--muted);border:1px solid var(--border);margin-top:8px;" onclick="closeBackupModal()">Close</button>
+  </div>
+</div>
+
+<!-- CONFIRM MODAL -->
+<div class="modal-overlay hidden" id="confirmModal">
+  <div class="modal" style="max-width:380px;">
+    <div class="modal-title" style="color:var(--red);">
+      <span style="width:6px;height:6px;border-radius:50%;background:var(--red);display:inline-block;flex-shrink:0"></span>
+      <span id="confirmTitle">Confirm</span>
+    </div>
+    <p id="confirmMessage" style="font-size:0.85rem;color:var(--muted);line-height:1.6;margin-bottom:4px;"></p>
+    <div class="modal-actions">
+      <button id="confirmYesBtn" style="background:var(--red);color:#fff;">Yes, Remove</button>
+      <button class="btn-cancel-modal" onclick="closeConfirm()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- PRINT OVERLAY -->
+<div class="print-overlay" id="printOverlay">
+  <div class="print-overlay-inner">
+    <div class="print-header">
+      <div>
+        <h2>📅 Peptide Protocol Schedule</h2>
+        <p id="printDate"></p>
+      </div>
+      <button class="print-close-btn" onclick="closePrintOverlay()">✕ Close</button>
+    </div>
+    <div class="print-action-row">
+      <button class="print-action-btn print-action-share" onclick="sharePrint()">📤 Share / Save PDF</button>
+      <button class="print-action-btn print-action-copy" onclick="copyPrintText()">📋 Copy as Text</button>
+    </div>
+    <div id="printBody"></div>
+    <div class="print-footer">
+      <span>Peptide Protocol Tracker v5.5</span>
+      <span id="printFooterDate"></span>
+    </div>
+  </div>
+</div>
+
+<div class="flash" id="flash"></div>
+
+<script>
+const LS_LEDGER = 'smp_ledger_v4';
+const LS_CUSTOM = 'smp_custom_v4';
+const LS_INV    = 'smp_inv_v4';
+const LS_NOTES  = 'smp_notes_v4';
+
+function defaultInv() {
+  return { vials:0, volRemaining:0, reconDate:'', expDays:28 };
+}
+
+var ledger  = [];
+var customs = {};
+var inv     = {};
+var notes   = {};
+
+function loadState() {
+  try { ledger  = JSON.parse(localStorage.getItem(LS_LEDGER)) || []; } catch(e){ ledger=[];  }
+  try { customs = JSON.parse(localStorage.getItem(LS_CUSTOM)) || {}; } catch(e){ customs={}; }
+  try { inv     = JSON.parse(localStorage.getItem(LS_INV))    || {}; } catch(e){ inv={};     }
+  try { notes   = JSON.parse(localStorage.getItem(LS_NOTES))  || {}; } catch(e){ notes={};   }
+}
+
+function persist(which) {
+  showSaving();
+  if (which==='ledger'||which==='all') localStorage.setItem(LS_LEDGER, JSON.stringify(ledger));
+  if (which==='custom'||which==='all') localStorage.setItem(LS_CUSTOM, JSON.stringify(customs));
+  if (which==='inv'   ||which==='all') localStorage.setItem(LS_INV,    JSON.stringify(inv));
+  if (which==='notes' ||which==='all') localStorage.setItem(LS_NOTES,  JSON.stringify(notes));
+  setTimeout(showSaved, 500);
+}
+
+function getInv(key) {
+  return inv[key] || defaultInv();
+}
+
+function allProfiles() {
+  var r = {};
+  Object.entries(customs).forEach(function(entry){ r[entry[0]] = entry[1]; });
+  return r;
+}
+
+function showSaving() {
+  document.getElementById('saveDot').classList.add('saving');
+  var t = document.getElementById('saveText');
+  t.textContent = 'Saving…'; t.style.color = 'var(--orange)';
+}
+function showSaved() {
+  document.getElementById('saveDot').classList.remove('saving');
+  var t = document.getElementById('saveText');
+  t.textContent = 'All data saved to device'; t.style.color = 'var(--muted)';
+  updateSaveCounts();
+}
+function updateSaveCounts() {
+  var all = allProfiles();
+  var noteCount = Object.values(notes).filter(function(v){ return v && v.trim(); }).length;
+  document.getElementById('saveCounts').textContent =
+    Object.keys(all).length + ' protocols · ' + ledger.length + ' log entries' +
+    (noteCount ? ' · ' + noteCount + ' note' + (noteCount!==1?'s':'') : '');
+}
+
+function nowDateTimeLocal() {
+  var now = new Date();
+  var pad = function(n){ return String(n).padStart(2,'0'); };
+  return now.getFullYear()+'-'+pad(now.getMonth()+1)+'-'+pad(now.getDate())+'T'+pad(now.getHours())+':'+pad(now.getMinutes());
+}
+
+function todayDateStr() {
+  var now = new Date();
+  var pad = function(n){ return String(n).padStart(2,'0'); };
+  return now.getFullYear()+'-'+pad(now.getMonth()+1)+'-'+pad(now.getDate());
+}
+
+function switchTab(id) {
+  document.querySelectorAll('.tab').forEach(function(t){ t.classList.remove('active'); });
+  document.querySelectorAll('.nav-btn').forEach(function(b){ b.classList.remove('active'); });
+  document.getElementById('tab-'+id).classList.add('active');
+  var map = {dash:0,ledger:1,timeline:2,add:3};
+  document.querySelectorAll('.nav-btn')[map[id]].classList.add('active');
+  if (id==='timeline') renderTimeline();
+  if (id==='ledger') {
+    var ei = document.getElementById('editIdx').value;
+    if (ei==='') {
+      document.getElementById('logDateTime').value = nowDateTimeLocal();
+    }
+  }
+}
+
+function populateSelects() {
+  var all = allProfiles();
+  ['calcProfile','logProfile'].forEach(function(id) {
+    var sel = document.getElementById(id);
+    var cur = sel.value;
+    sel.innerHTML = '';
+    Object.entries(all).forEach(function(entry) {
+      var o = document.createElement('option');
+      o.value = entry[0];
+      o.textContent = entry[1].name + (customs[entry[0]] ? ' ✦' : '');
+      sel.appendChild(o);
+    });
+    if (cur && all[cur]) sel.value = cur;
+  });
+}
+
+function calcResult(mgTotal, dilVol, doseMcg, route, sprayUl) {
+  if (!mgTotal||!dilVol||!doseMcg||mgTotal<=0||dilVol<=0||doseMcg<=0)
+    return { error:'Enter valid positive values.' };
+  var totalMcg = mgTotal * 1000;
+  if (doseMcg > totalMcg)
+    return { error:'Dose (' + fmtMcg(doseMcg) + ') exceeds vial total (' + fmtMcg(totalMcg) + ').' };
+  var conc = totalMcg / dilVol;
+  if (route==='nas') {
+    var ul = sprayUl||100;
+    var mcgPerSpray = conc*(ul/1000);
+    var sprays = doseMcg/mcgPerSpray;
+    var sf = sprays%1===0 ? sprays : sprays.toFixed(1);
+    return { label:'Nasal Actuations', value:String(sf), unit:'spray'+(sprays!==1?'s':''),
+      desc:'Each '+ul+'µL actuation delivers '+mcgPerSpray.toFixed(1)+' mcg.',
+      sub:'Conc: '+conc.toLocaleString()+' mcg/mL · '+mgTotal+'mg in '+dilVol+'mL' };
+  } else {
+    var units = (doseMcg/conc)*100;
+    var uf = units%1===0 ? units : Math.round(units*10)/10;
+    return { label:'Syringe Pull', value:String(uf), unit:'units',
+      desc:'Pull to the '+uf+' unit mark on a U-100 (1 mL) syringe.',
+      sub:'Conc: '+conc.toLocaleString()+' mcg/mL · '+mgTotal+'mg in '+dilVol+'mL' };
+  }
+}
+
+function fmtMcg(v){ return v>=1000?(v/1000)+' mg':v+' mcg'; }
+function fmtDate(iso){ if(!iso)return'—'; var parts=iso.split('-'); var mo=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']; return mo[parseInt(parts[1])-1]+' '+parseInt(parts[2])+', '+parts[0]; }
+function daysSince(iso){ if(!iso)return 0; return Math.floor((new Date()-new Date(iso+'T00:00:00'))/86400000); }
+
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function syncProfile() {
+  var key = document.getElementById('calcProfile').value;
+  var p = allProfiles()[key]; if(!p)return;
+  document.getElementById('vialMg').value = p.mgTotal;
+  document.getElementById('dilVol').value  = p.dilVol;
+  if (p.doseMcg>=1000&&p.route!=='nas') {
+    document.getElementById('doseTgt').value=p.doseMcg/1000;
+    document.getElementById('doseTgt').dataset.unit='mg';
+    document.getElementById('doseLbl').textContent='Target Dose (mg)';
+  } else {
+    document.getElementById('doseTgt').value=p.doseMcg;
+    document.getElementById('doseTgt').dataset.unit='mcg';
+    document.getElementById('doseLbl').textContent='Target Dose (mcg)';
+  }
+  calc();
+}
+
+function calc() {
+  var key=document.getElementById('calcProfile').value;
+  var p=allProfiles()[key];
+  var route=p?p.route:'inj', sprayUl=p?(p.sprayUl||100):100;
+  var mgTotal=parseFloat(document.getElementById('vialMg').value)||0;
+  var dilVol =parseFloat(document.getElementById('dilVol').value)||0;
+  var rawDose=parseFloat(document.getElementById('doseTgt').value)||0;
+  var unit=document.getElementById('doseTgt').dataset.unit||'mcg';
+  var doseMcg=unit==='mg'?rawDose*1000:rawDose;
+  var r=calcResult(mgTotal,dilVol,doseMcg,route,sprayUl);
+  var valEl=document.getElementById('resVal');
+  if(r.error){ document.getElementById('resLbl').textContent='Error'; valEl.textContent='—'; valEl.style.color='var(--red)'; document.getElementById('resDesc').textContent=r.error; document.getElementById('resSub').textContent=''; return; }
+  valEl.style.color='var(--green)';
+  document.getElementById('resLbl').textContent=r.label;
+  valEl.textContent=r.value+' '+r.unit;
+  document.getElementById('resDesc').textContent=r.desc;
+  document.getElementById('resSub').textContent=r.sub;
+}
+
+function expiryStatus(i) {
+  if (!i.reconDate) return { pct:0, daysLeft:null, status:'none', label:'No recon date set', color:'var(--muted)' };
+  var used = daysSince(i.reconDate);
+  var total = i.expDays || 28;
+  var daysLeft = total - used;
+  var pct = Math.max(0, Math.min(100, (daysLeft/total)*100));
+  if (daysLeft < 0)  return { pct:0, daysLeft:daysLeft, status:'exp',  label:'EXPIRED '+Math.abs(daysLeft)+'d ago', color:'var(--red)' };
+  if (daysLeft <= 7) return { pct:pct, daysLeft:daysLeft, status:'warn', label:daysLeft+'d remaining', color:'var(--yellow)' };
+  return { pct:pct, daysLeft:daysLeft, status:'ok', label:daysLeft+'d remaining', color:'var(--green)' };
+}
+
+function dosesFromVol(p, volMl) {
+  if (!volMl||!p.mgTotal||!p.dilVol||!p.doseMcg) return 0;
+  var concMcgPerMl = (p.mgTotal*1000)/p.dilVol;
+  var mlPerDoseVal = p.doseMcg/concMcgPerMl;
+  return Math.floor(volMl/mlPerDoseVal);
+}
+
+function mlPerDose(p) {
+  var conc = (p.mgTotal*1000)/p.dilVol;
+  return p.doseMcg/conc;
+}
+
+function cycleStatus(p) {
+  if (!p.dateStarted||!p.cycleDays) return null;
+  var cycleDays=p.cycleDays, breakDays=p.breakDays||0, totalCycle=cycleDays+breakDays;
+  var elapsed=daysSince(p.dateStarted);
+  var cycleNum=Math.floor(elapsed/totalCycle)+1;
+  var pos=((elapsed%totalCycle)+totalCycle)%totalCycle;
+  var phase, dayInPhase, phaseLength;
+  if (pos<cycleDays){ phase='active'; dayInPhase=pos+1; phaseLength=cycleDays; }
+  else { phase='break'; dayInPhase=(pos-cycleDays)+1; phaseLength=breakDays; }
+  var daysLeft=phaseLength-dayInPhase+1;
+  var pct=Math.max(0,Math.min(100,(dayInPhase/phaseLength)*100));
+  var nextDate=new Date(); nextDate.setDate(nextDate.getDate()+(phaseLength-dayInPhase+1));
+  return { phase:phase, daysLeft:daysLeft, dayInPhase:dayInPhase, phaseLength:phaseLength, pct:pct, cycleNum:cycleNum, nextDate:nextDate, breakDays:breakDays };
+}
+
+function renderCycleSection(cyc) {
+  var isActive=cyc.phase==='active';
+  var badgeClass=isActive?'cycle-phase-active':'cycle-phase-break';
+  var badgeLabel=isActive?'🟢 Active Phase':'🟣 Break Phase';
+  var barColor=isActive?'var(--green)':'var(--purple)';
+  var switchLabel=isActive?(cyc.breakDays>0?'Break starts':'Cycle repeats'):'Next cycle starts';
+  var nextDateStr=cyc.nextDate.toLocaleDateString('en-US',{month:'short',day:'numeric'});
+  return '<div class="cycle-section">'+
+    '<div class="cycle-title">🔄 Cycle Status</div>'+
+    '<div class="cycle-phase-row">'+
+      '<span class="cycle-phase-badge '+badgeClass+'">'+badgeLabel+'</span>'+
+      '<span class="cycle-days-left" style="color:'+barColor+'">'+cyc.daysLeft+'d left</span>'+
+    '</div>'+
+    '<div class="cycle-bar-bg"><div class="cycle-bar-fill" style="width:'+cyc.pct.toFixed(1)+'%;background:'+barColor+'"></div></div>'+
+    '<div class="cycle-sub">'+
+      '<span>Day '+cyc.dayInPhase+' of '+cyc.phaseLength+' · Cycle #'+cyc.cycleNum+'</span>'+
+      '<span>'+switchLabel+': '+nextDateStr+'</span>'+
+    '</div>'+
+  '</div>';
+}
+
+function renderCards() {
+  var grid=document.getElementById('protoGrid');
+  grid.innerHTML='';
+  var all=allProfiles();
+  var expiringSoon=0, lowStock=0;
+
+  Object.entries(all).forEach(function(entry) {
+    var key=entry[0], p=entry[1];
+    var r=calcResult(p.mgTotal,p.dilVol,p.doseMcg,p.route,p.sprayUl);
+    var metric=r.error?'Error':r.value+' '+r.unit;
+    var metricLbl=p.route==='nas'?'Per Dose (Sprays)':'Per Dose (Units)';
+    var isCustom=!!customs[key];
+    var badgeClass=p.route==='nas'?'badge-nas':'badge-inj';
+    var badgeLabel=p.route==='nas'?'Nasal':'SubQ';
+    var customTag=isCustom?'<span style="font-family:var(--mono);font-size:0.55rem;background:var(--purple-dim);color:var(--purple);padding:1px 5px;border-radius:3px;margin-left:4px;">custom</span>':'';
+
+    var i=getInv(key);
+    var ex=expiryStatus(i);
+    var cyc=cycleStatus(p);
+    var dosesLeft=dosesFromVol(p,i.volRemaining);
+    var totalVials=i.vials||0;
+    var invSetUp=!!inv[key];
+    var volPct=p.dilVol>0?Math.min(100,Math.max(0,(i.volRemaining/p.dilVol)*100)):0;
+
+    if (ex.status==='warn'||ex.status==='exp') expiringSoon++;
+    var invActive=invSetUp&&(i.volRemaining>0||i.reconDate);
+    if (invActive&&totalVials<=2) lowStock++;
+
+    var exColor=ex.status==='ok'?'var(--green)':ex.status==='warn'?'var(--yellow)':ex.status==='exp'?'var(--red)':'#333';
+    var statusBadge=ex.status==='none'
+      ?'<span class="status-badge status-none">No Data</span>'
+      :ex.status==='exp'
+      ?'<span class="status-badge status-exp">⚠ '+ex.label+'</span>'
+      :ex.status==='warn'
+      ?'<span class="status-badge status-warn">⚠ '+ex.label+'</span>'
+      :'<span class="status-badge status-ok">✓ '+ex.label+'</span>';
+
+    var card=document.createElement('div');
+    card.className='proto-card '+p.route;
+    card.id='pcard-'+key;
+
+    card.innerHTML=
+      '<div class="proto-top">'+
+        '<div class="proto-name">'+escapeHtml(p.name)+customTag+'</div>'+
+        '<div class="proto-badge '+badgeClass+'">'+badgeLabel+'</div>'+
+      '</div>'+
+      '<div class="proto-row"><span>Vial</span><span class="proto-val">'+p.mgTotal+' mg</span></div>'+
+      '<div class="proto-row"><span>Diluent Volume</span><span class="proto-val">'+p.dilVol+' mL BAC Water</span></div>'+
+      '<div class="proto-row"><span>Dose</span><span class="proto-val">'+fmtMcg(p.doseMcg)+'</span></div>'+
+      '<div class="proto-row"><span>Schedule</span><span class="proto-val" style="color:var(--muted);font-size:0.72rem">'+escapeHtml(p.freq)+'</span></div>'+
+      '<div class="proto-row"><span>Date Started</span><span class="proto-val" style="color:'+(p.dateStarted?'var(--cyan)':'var(--muted)')+';font-size:0.72rem">'+(p.dateStarted?fmtDate(p.dateStarted)+' <span style="color:var(--muted);font-size:0.68rem">('+daysSince(p.dateStarted)+'d)</span>':'— not set')+'</span></div>'+
+      '<div class="proto-metric"><span class="proto-metric-lbl">'+metricLbl+'</span><span class="proto-metric-val">'+metric+'</span></div>'+
+      (notes[key]&&notes[key].trim()?'<div style="margin-top:8px;background:#0d0a1a;border:1px solid rgba(167,139,250,0.15);border-radius:5px;padding:6px 9px;font-size:0.73rem;color:#7a6a9a;line-height:1.45;white-space:pre-wrap;">'+escapeHtml(notes[key].length>120?notes[key].slice(0,120)+'…':notes[key])+'</div>':'')+
+      (cyc?renderCycleSection(cyc):'')+
+      '<div class="inv-section">'+
+        '<div class="inv-title">🧪 Current Open Vial</div>'+
+        '<div class="inv-row"><span class="inv-lbl">Volume remaining</span><span class="inv-val" style="color:var(--cyan)">'+i.volRemaining.toFixed(2)+' mL</span></div>'+
+        '<div class="vol-bar-wrap"><div class="bar-bg"><div class="bar-fill" style="width:'+volPct.toFixed(1)+'%;background:var(--cyan)"></div></div></div>'+
+        '<div class="inv-row" style="margin-top:5px"><span class="inv-lbl">Doses remaining</span><span class="inv-val" style="color:var(--orange)">'+dosesLeft+' dose'+(dosesLeft!==1?'s':'')+'</span></div>'+
+        '<div class="inv-row" style="margin-top:6px"><span class="inv-lbl">Reconstituted</span><span class="inv-val" style="color:'+(i.reconDate?'var(--text)':'var(--muted)')+';font-size:0.75rem">'+(i.reconDate?fmtDate(i.reconDate):'— not set')+'</span></div>'+
+        (i.reconDate?'<div class="inv-row"><span class="inv-lbl">Day</span><span class="inv-val" style="color:var(--muted);font-size:0.75rem">Day '+daysSince(i.reconDate)+' of '+i.expDays+'</span></div>':'')+
+        '<div class="expiry-bar-wrap" style="margin-top:6px">'+
+          '<div class="expiry-info"><span style="color:var(--muted)">Stability</span><span style="color:'+exColor+'">'+(ex.status!=='none'?ex.label:'—')+'</span></div>'+
+          '<div class="bar-bg"><div class="bar-fill" style="width:'+ex.pct.toFixed(1)+'%;background:'+exColor+'"></div></div>'+
+        '</div>'+
+        '<div style="margin-top:6px">'+statusBadge+'</div>'+
+        '<div class="inv-title" style="margin-top:12px">📦 Sealed Storage</div>'+
+        '<div class="inv-row"><span class="inv-lbl">Vials in stock</span><span class="inv-val" style="color:'+(totalVials===0?'var(--red)':totalVials<=2?'var(--yellow)':'var(--text)')+'">'+totalVials+' vial'+(totalVials!==1?'s':'')+'</span></div>'+
+      '</div>'+
+      '<div class="card-actions" style="margin-top:10px">'+
+        '<button class="btn-card-edit" onclick="openEditModal(\''+key+'\')">✏️ Protocol</button>'+
+        '<button class="btn-card-inv"  onclick="openInvModal(\''+key+'\')">📦 Inventory</button>'+
+        (isCustom?'<button onclick="removeCustom(\''+key+'\')" title="Remove protocol" style="background:var(--red-dim);color:var(--red);border:1px solid rgba(239,68,68,0.15);border-radius:5px;padding:7px 10px;font-size:0.72rem;font-weight:600;cursor:pointer;">🗑</button>':'')+
+      '</div>'+
+      '<button class="btn-card-dose" onclick="logDose(\''+key+'\')" '+(dosesLeft<=0?'disabled':'')+'>'+
+        (dosesLeft>0?'✓ Log Dose':'No Volume Remaining')+
+      '</button>';
+
+    grid.appendChild(card);
+  });
+
+  var isEmpty=Object.keys(all).length===0;
+  document.getElementById('emptyState').style.display=isEmpty?'block':'none';
+  document.getElementById('protoGrid').style.display=isEmpty?'none':'grid';
+  document.getElementById('statProtos').textContent=Object.keys(all).length;
+  document.getElementById('statExpiring').textContent=expiringSoon||'0';
+  document.getElementById('statLowStock').textContent=lowStock||'0';
+}
+
+function logDose(key) {
+  var p=allProfiles()[key]; if(!p)return;
+  var i=getInv(key);
+  var ml=mlPerDose(p);
+  if (i.volRemaining<ml){ flash('Insufficient volume — update inventory','err'); return; }
+  i.volRemaining=Math.max(0,parseFloat((i.volRemaining-ml).toFixed(3)));
+  var vialEmpty=false;
+  if (i.volRemaining<=0&&i.vials>0){
+    i.vials=Math.max(0,i.vials-1); i.volRemaining=0; i.reconDate=''; vialEmpty=true;
+  }
+  inv[key]=i; persist('inv');
+  var r=calcResult(p.mgTotal,p.dilVol,p.doseMcg,p.route,p.sprayUl);
+  var now=new Date();
+  ledger.unshift({
+    ts:now.toLocaleString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}),
+    tsISO:now.toISOString(),
+    protocol:p.name,
+    dose:r.error?fmtMcg(p.doseMcg):fmtMcg(p.doseMcg)+' / '+r.value+' '+r.unit,
+    notes:'Logged from card'
+  });
+  persist('ledger');
+  renderCards(); renderLedger(); updateStats(); updateSaveCounts();
+  if (vialEmpty){ flash(p.name+': vial empty — open 📦 Inventory to log new vial','info'); }
+  else { flash(p.name+' dose logged'); }
+}
+
+function openEditModal(key) {
+  var p=allProfiles()[key]; if(!p)return;
+  document.getElementById('modalKey').value=key;
+  document.getElementById('modalProtocolName').textContent=p.name;
+  document.getElementById('modalName').value=p.name;
+  document.getElementById('modalMg').value=p.mgTotal;
+  document.getElementById('modalVol').value=p.dilVol;
+  document.getElementById('modalRoute').value=p.route;
+  document.getElementById('modalFreq').value=p.freq;
+  document.getElementById('modalSprayVol').value=p.sprayUl||100;
+  document.getElementById('modalDateStarted').value=p.dateStarted||'';
+  document.getElementById('modalCycleWeeks').value=p.cycleDays?(p.cycleDays/7):'';
+  document.getElementById('modalBreakWeeks').value=p.breakDays?(p.breakDays/7):'';
+  var isNas=p.route==='nas';
+  document.getElementById('modalDoseSubQ').style.display=isNas?'none':'block';
+  document.getElementById('modalDoseNasal').style.display=isNas?'grid':'none';
+  if(isNas){ document.getElementById('modalUnit').value='mcg'; document.getElementById('modalDoseNas').value=p.doseMcg; }
+  else if(p.doseMcg>=1000){ document.getElementById('modalUnit').value='mg'; document.getElementById('modalDose').value=p.doseMcg/1000; document.getElementById('modalDoseLbl').textContent='Target Dose (mg)'; }
+  else { document.getElementById('modalUnit').value='mcg'; document.getElementById('modalDose').value=p.doseMcg; document.getElementById('modalDoseLbl').textContent='Target Dose (mcg)'; }
+  document.getElementById('modalNotes').value=notes[key]||'';
+  document.getElementById('editModal').classList.remove('hidden');
+  var card=document.getElementById('pcard-'+key);
+  if(card) card.classList.add('editing-card');
+}
+
+function closeEditModal() {
+  var key=document.getElementById('modalKey').value;
+  var card=document.getElementById('pcard-'+key);
+  if(card) card.classList.remove('editing-card');
+  document.getElementById('editModal').classList.add('hidden');
+}
+
+function toggleModalRouteFields() {
+  var isNas=document.getElementById('modalRoute').value==='nas';
+  document.getElementById('modalDoseSubQ').style.display=isNas?'none':'block';
+  document.getElementById('modalDoseNasal').style.display=isNas?'grid':'none';
+}
+
+function saveModalEdit() {
+  var key=document.getElementById('modalKey').value;
+  var name=document.getElementById('modalName').value.trim();
+  var mgTotal=parseFloat(document.getElementById('modalMg').value);
+  var dilVol=parseFloat(document.getElementById('modalVol').value);
+  var route=document.getElementById('modalRoute').value;
+  var freq=document.getElementById('modalFreq').value.trim()||'As directed';
+  var sprayUl=parseFloat(document.getElementById('modalSprayVol').value)||100;
+  var dateStarted=document.getElementById('modalDateStarted').value||'';
+  var cycleWeeks=parseFloat(document.getElementById('modalCycleWeeks').value)||0;
+  var breakWeeks=parseFloat(document.getElementById('modalBreakWeeks').value)||0;
+  var cycleDays=Math.round(cycleWeeks*7), breakDays=Math.round(breakWeeks*7);
+  var doseMcg;
+  if(route==='nas'){ doseMcg=parseFloat(document.getElementById('modalDoseNas').value)||0; }
+  else { var raw=parseFloat(document.getElementById('modalDose').value)||0; var unit=document.getElementById('modalUnit').value; doseMcg=unit==='mg'?raw*1000:raw; }
+  if(!name||!mgTotal||!dilVol||!doseMcg){ flash('Fill all fields','err'); return; }
+  customs[key]={ name:name, mgTotal:mgTotal, dilVol:dilVol, doseMcg:doseMcg, route:route, sprayUl:sprayUl, freq:freq, dateStarted:dateStarted, cycleDays:cycleDays, breakDays:breakDays };
+  persist('custom');
+  var noteVal=document.getElementById('modalNotes').value;
+  if(noteVal.trim()){ notes[key]=noteVal; } else { delete notes[key]; }
+  persist('notes');
+  closeEditModal();
+  populateSelects(); renderCards(); updateSaveCounts();
+  flash(name+' saved');
+}
+
+function removeCustom(key) {
+  var name=customs[key]?customs[key].name:'Protocol';
+  showConfirm('Remove "'+name+'" permanently? This cannot be undone.', function() {
+    delete customs[key]; delete notes[key]; delete inv[key];
+    persist('all');
+    populateSelects(); renderCards(); updateSaveCounts();
+    flash(name+' removed');
+  });
+}
+
+function openInvModal(key) {
+  var p=allProfiles()[key]; if(!p)return;
+  var i=getInv(key);
+  document.getElementById('invModalKey').value=key;
+  document.getElementById('invModalName').textContent=p.name;
+  document.getElementById('invVials').value=i.vials||0;
+  document.getElementById('invVolRemaining').value=i.volRemaining||0;
+  document.getElementById('invReconDate').value=i.reconDate||'';
+  document.getElementById('invExpDays').value=i.expDays||28;
+  document.getElementById('invModal').classList.remove('hidden');
+}
+
+function closeInvModal() { document.getElementById('invModal').classList.add('hidden'); }
+
+function saveInvModal() {
+  var key=document.getElementById('invModalKey').value;
+  var vials=parseInt(document.getElementById('invVials').value)||0;
+  var volRem=parseFloat(document.getElementById('invVolRemaining').value)||0;
+  var reconDate=document.getElementById('invReconDate').value||'';
+  var expDays=parseInt(document.getElementById('invExpDays').value)||28;
+  inv[key]={ vials:vials, volRemaining:volRem, reconDate:reconDate, expDays:expDays };
+  persist('inv');
+  closeInvModal();
+  renderCards();
+  flash('Inventory saved');
+}
+
+function buildBackupJSON() {
+  return JSON.stringify({ _version:'5.5', _exported:new Date().toISOString(), ledger:ledger, customs:customs, inv:inv, notes:notes }, null, 2);
+}
+
+function openBackupModal() {
+  var json=buildBackupJSON();
+  var all=allProfiles();
+  var noteCount=Object.values(notes).filter(function(v){ return v&&v.trim(); }).length;
+  document.getElementById('backupPreview').textContent=Object.keys(all).length+' protocols · '+ledger.length+' log entries · '+noteCount+' notes';
+  document.getElementById('backupJsonBox').textContent=json;
+  document.getElementById('backupCopyBtn').textContent='📋 Copy to Clipboard';
+  document.getElementById('backupCopyBtn').style.background='var(--green)';
+  document.getElementById('backupDownloadBtn').textContent='⬇️ Download Backup (.json)';
+  document.getElementById('backupDownloadBtn').style.color='var(--cyan)';
+  document.getElementById('backupModal').classList.remove('hidden');
+}
+
+function downloadBackup() {
+  var json=buildBackupJSON();
+  var blob=new Blob([json],{type:'application/json'});
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement('a');
+  var ts=new Date().toISOString().slice(0,10);
+  a.href=url; a.download='peptide-backup-'+ts+'.json';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(function(){ URL.revokeObjectURL(url); },1000);
+  var btn=document.getElementById('backupDownloadBtn');
+  btn.textContent='✅ Saved to Files!'; btn.style.color='var(--green)';
+  setTimeout(function(){ btn.textContent='⬇️ Download Backup (.json)'; btn.style.color='var(--cyan)'; },2500);
+}
+
+function tryCopyBackup() {
+  var json=buildBackupJSON();
+  var btn=document.getElementById('backupCopyBtn');
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(json).then(function(){ btn.textContent='✅ Copied!'; btn.style.background='var(--cyan)'; }).catch(function(){ tryExecCopy(json,btn); });
+  } else { tryExecCopy(json,btn); }
+}
+
+function tryExecCopy(json,btn) {
+  var ta=document.createElement('textarea');
+  ta.value=json; ta.style.cssText='position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;';
+  document.body.appendChild(ta); ta.focus(); ta.select();
+  var ok=false; try{ ok=document.execCommand('copy'); }catch(e){ ok=false; }
+  document.body.removeChild(ta);
+  if(ok){ btn.textContent='✅ Copied!'; btn.style.background='var(--cyan)'; }
+  else {
+    btn.textContent='⚠️ Auto-copy failed — select text below manually'; btn.style.background='var(--orange)';
+    var box=document.getElementById('backupJsonBox');
+    var range=document.createRange(); range.selectNodeContents(box);
+    var sel=window.getSelection(); if(sel){ sel.removeAllRanges(); sel.addRange(range); }
+  }
+}
+
+function closeBackupModal() {
+  document.getElementById('backupModal').classList.add('hidden');
+  var btn=document.getElementById('backupCopyBtn'); btn.textContent='📋 Copy to Clipboard'; btn.style.background='var(--green)';
+  var dbtn=document.getElementById('backupDownloadBtn'); if(dbtn){ dbtn.textContent='⬇️ Download Backup (.json)'; dbtn.style.color='var(--cyan)'; }
+}
+
+function saveLog() {
+  var key=document.getElementById('logProfile').value;
+  var p=allProfiles()[key];
+  var name=p?p.name:key;
+  var dose=document.getElementById('logDose').value.trim()||'Not specified';
+  var nts=document.getElementById('logNotes').value.trim()||'—';
+  var ei=document.getElementById('editIdx').value;
+  var dtVal=document.getElementById('logDateTime').value;
+  var dtObj=dtVal?new Date(dtVal):new Date();
+  var ts=dtObj.toLocaleString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
+  var entry={ ts:ts, tsISO:dtObj.toISOString(), protocol:name, dose:dose, notes:nts };
+
+  if(ei!==''){
+    ledger[parseInt(ei)]=entry;
+    document.getElementById('editIdx').value='';
+    document.getElementById('logBtn').textContent='💾 Save Log Entry';
+    flash('Entry updated');
+  } else {
+    // FIX: warn if logging with no volume
+    if(p&&inv[key]){
+      if(inv[key].volRemaining<=0){
+        flash('⚠️ No volume remaining — update inventory first','err');
+      } else {
+        var ml=mlPerDose(p);
+        if(inv[key].volRemaining>=ml){
+          inv[key].volRemaining=Math.max(0,parseFloat((inv[key].volRemaining-ml).toFixed(3)));
+          if(inv[key].volRemaining<=0&&inv[key].vials>0){
+            inv[key].vials=Math.max(0,inv[key].vials-1); inv[key].volRemaining=0; inv[key].reconDate='';
+            flash(name+': vial empty — open 📦 Inventory to log new vial','info');
+          }
+          persist('inv'); updateSaveCounts(); renderCards();
+        }
+      }
+    }
+    ledger.unshift(entry);
+    flash('Entry saved');
+  }
+
+  persist('ledger');
+  document.getElementById('logDose').value='';
+  document.getElementById('logNotes').value='';
+  // FIX: reset datetime to now after save
+  document.getElementById('logDateTime').value=nowDateTimeLocal();
+  renderLedger(); updateStats(); updateSaveCounts();
+}
+
+function renderLedger() {
+  var body=document.getElementById('ledgerBody');
+  if(!ledger.length){ body.innerHTML='<tr><td colspan="5" class="empty-state">No entries yet.</td></tr>'; return; }
+  body.innerHTML=ledger.map(function(e,i){
+    return '<tr>'+
+      '<td style="color:var(--muted);font-family:var(--mono);font-size:0.7rem;white-space:nowrap">'+escapeHtml(e.ts)+'</td>'+
+      '<td style="font-weight:600">'+escapeHtml(e.protocol)+'</td>'+
+      '<td><span class="pill">'+escapeHtml(e.dose)+'</span></td>'+
+      '<td style="color:var(--muted);font-size:0.77rem">'+escapeHtml(e.notes)+'</td>'+
+      '<td style="text-align:right;white-space:nowrap">'+
+        '<button class="btn-sm btn-edit" onclick="editLog('+i+')">Edit</button> '+
+        '<button class="btn-sm btn-del"  onclick="delLog('+i+')">Del</button>'+
+      '</td>'+
+    '</tr>';
+  }).join('');
+}
+
+function editLog(i) {
+  var e=ledger[i];
+  var sel=document.getElementById('logProfile');
+  Object.entries(allProfiles()).forEach(function(entry){ if(entry[1].name===e.protocol) sel.value=entry[0]; });
+  document.getElementById('logDose').value=e.dose;
+  document.getElementById('logNotes').value=e.notes;
+  document.getElementById('editIdx').value=i;
+  document.getElementById('logBtn').textContent='✏️ Update Entry';
+  // FIX: always populate datetime, fallback to now if tsISO missing
+  document.getElementById('logDateTime').value=e.tsISO ? e.tsISO.slice(0,16) : nowDateTimeLocal();
+  switchTab('ledger'); window.scrollTo({top:0,behavior:'smooth'});
+}
+
+function delLog(i) {
+  showConfirm('Remove this log entry? This cannot be undone.', function() {
+    ledger.splice(i,1); persist('ledger'); renderLedger(); updateStats(); updateSaveCounts();
+  });
+}
+
+function clearLedger() {
+  showConfirm('Clear ALL log entries? This cannot be undone.', function() {
+    ledger=[]; persist('ledger'); renderLedger(); updateStats(); updateSaveCounts(); flash('Ledger cleared');
+  }, 'Yes, Clear All');
+}
+
+function toggleImport() {
+  var p=document.getElementById('importPanel');
+  p.style.display=p.style.display==='none'?'block':'none';
+  if(p.style.display==='none') document.getElementById('importText').value='';
+}
+
+function importFromPaste() {
+  // FIX: confirm before destructive restore
+  showConfirm('Restore from backup? This will replace ALL current data.', function() {
+    try {
+      var raw=document.getElementById('importText').value.trim();
+      var parsed=JSON.parse(raw);
+      if(Array.isArray(parsed)){ ledger=parsed; }
+      else {
+        if(parsed.ledger)  ledger=parsed.ledger;
+        if(parsed.customs) customs=parsed.customs;
+        if(parsed.inv)     inv=parsed.inv;
+        if(parsed.notes)   notes=parsed.notes;
+      }
+      persist('all');
+      renderLedger(); renderCards(); populateSelects(); updateStats(); updateSaveCounts();
+      document.getElementById('importPanel').style.display='none';
+      document.getElementById('importText').value='';
+      flash('Backup restored');
+    } catch(e){ flash('Invalid JSON','err'); }
+  }, 'Yes, Restore');
+}
+
+function toggleNewRouteFields() {
+  var isNas=document.getElementById('newRoute').value==='nas';
+  document.getElementById('newDoseSubQ').style.display=isNas?'none':'block';
+  document.getElementById('newDoseNasal').style.display=isNas?'grid':'none';
+}
+
+function addProtocol() {
+  var name=document.getElementById('newName').value.trim();
+  if(!name){ flash('Enter a peptide name','err'); return; }
+  var mgTotal=parseFloat(document.getElementById('newMg').value);
+  var dilVol=parseFloat(document.getElementById('newVol').value);
+  var route=document.getElementById('newRoute').value;
+  var freq=document.getElementById('newFreq').value.trim()||'As directed';
+  var sprayUl=parseFloat(document.getElementById('newSprayVol').value)||100;
+  var dateStarted=document.getElementById('newDateStarted').value||'';
+  var cycleWeeksNew=parseFloat(document.getElementById('newCycleWeeks').value)||0;
+  var breakWeeksNew=parseFloat(document.getElementById('newBreakWeeks').value)||0;
+  var cycleDays=Math.round(cycleWeeksNew*7), breakDays=Math.round(breakWeeksNew*7);
+  var doseMcg;
+  if(route==='nas'){ doseMcg=parseFloat(document.getElementById('newDoseNas').value)||0; }
+  else { var raw=parseFloat(document.getElementById('newDose').value)||0; var unit=document.getElementById('newUnit').value; doseMcg=unit==='mg'?raw*1000:raw; }
+  if(!mgTotal||!dilVol||!doseMcg){ flash('Fill all required fields','err'); return; }
+  var key='c_'+Date.now();
+  customs[key]={ name:name, mgTotal:mgTotal, dilVol:dilVol, doseMcg:doseMcg, route:route, sprayUl:sprayUl, freq:freq, dateStarted:dateStarted, cycleDays:cycleDays, breakDays:breakDays };
+  persist('custom');
+  var newNote=document.getElementById('newNotes').value;
+  if(newNote.trim()){ notes[key]=newNote; persist('notes'); }
+  populateSelects(); renderCards(); updateStats(); updateSaveCounts();
+  flash(name+' saved to device');
+  document.getElementById('newName').value='';
+  document.getElementById('newNotes').value='';
+  document.getElementById('newCycleWeeks').value='';
+  document.getElementById('newBreakWeeks').value='';
+  switchTab('dash');
+}
+
+function updateStats() {
+  document.getElementById('statLogs').textContent=ledger.length;
+  document.getElementById('statProtos').textContent=Object.keys(allProfiles()).length;
+}
+
+function renderTimeline() {
+  var body=document.getElementById('timelineBody');
+  if(!body)return;
+  var all=allProfiles();
+  var keys=Object.keys(all);
+  if(!keys.length){ body.innerHTML='<div class="empty-state">No protocols added yet.</div>'; return; }
+  var colors=['var(--blue)','var(--green)','var(--cyan)','var(--orange)','var(--purple)','var(--yellow)','var(--red)'];
+  body.innerHTML=keys.map(function(key,idx){
+    var p=all[key];
+    var color=colors[idx%colors.length];
+    var r=calcResult(p.mgTotal,p.dilVol,p.doseMcg,p.route,p.sprayUl);
+    var doseStr=r.error?fmtMcg(p.doseMcg):fmtMcg(p.doseMcg)+' — '+r.value+' '+r.unit;
+    var routeStr=p.route==='nas'?'Nasal Spray':'SubQ Injectable';
+    var isLast=idx===keys.length-1;
+    var noteText=notes[key]?notes[key].trim():'';
+    return '<div class="tl-item">'+
+      '<div class="tl-dot-wrap">'+
+        '<div class="tl-dot" style="background:'+color+'"></div>'+
+        (isLast?'':'<div class="tl-line"></div>')+
+      '</div>'+
+      '<div style="flex:1;padding-bottom:4px;">'+
+        '<div class="tl-day" style="color:'+color+'">'+escapeHtml(p.freq)+'</div>'+
+        '<div class="tl-entry">'+
+          '<strong>'+escapeHtml(p.name)+':</strong> '+escapeHtml(doseStr)+' · '+routeStr+
+          (noteText?'<br><span style="color:#4a6080;font-size:0.78rem">'+escapeHtml(noteText.split('\n')[0].slice(0,100))+'</span>':'')+
+        '</div>'+
+      '</div>'+
+    '</div>';
+  }).join('');
+}
+
+// ── PRINT OVERLAY ──
+var PRINT_COLORS = ['#3b82f6','#22c55e','#22d3ee','#f97316','#a78bfa','#facc15','#ef4444'];
+
+function openPrintOverlay() {
+  var all = allProfiles();
+  var keys = Object.keys(all);
+  var now = new Date();
+  var dateStr = now.toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+
+  document.getElementById('printDate').textContent = 'Generated: ' + dateStr;
+  document.getElementById('printFooterDate').textContent = dateStr;
+
+  var html = '';
+  if (!keys.length) {
+    html = '<p style="color:#666;font-size:0.85rem;padding:20px 0;">No protocols added yet.</p>';
+  } else {
+    html = keys.map(function(key, idx) {
+      var p = all[key];
+      var color = PRINT_COLORS[idx % PRINT_COLORS.length];
+      var r = calcResult(p.mgTotal, p.dilVol, p.doseMcg, p.route, p.sprayUl);
+      var doseStr = r.error ? fmtMcg(p.doseMcg) : fmtMcg(p.doseMcg) + ' — ' + r.value + ' ' + r.unit;
+      var routeStr = p.route === 'nas' ? 'Nasal Spray' : 'SubQ Injectable';
+      var noteText = notes[key] ? notes[key].trim() : '';
+      var cyc = cycleStatus(p);
+      var cycStr = '';
+      if (cyc) {
+        cycStr = ' · Cycle #' + cyc.cycleNum + ' · ' + (cyc.phase === 'active' ? 'Active' : 'Break') + ' phase · ' + cyc.daysLeft + 'd remaining';
+      }
+      return '<div class="print-tl-item">'+
+        '<div class="print-tl-dot" style="background:'+color+'"></div>'+
+        '<div style="flex:1;">'+
+          '<div class="print-tl-freq" style="color:'+color+'">' + escapeHtml(p.freq) + '</div>'+
+          '<div class="print-tl-name">' + escapeHtml(p.name) + '</div>'+
+          '<div class="print-tl-detail">' + escapeHtml(doseStr) + ' · ' + routeStr + escapeHtml(cycStr) + '</div>'+
+          (p.dateStarted ? '<div class="print-tl-detail" style="color:#888;">Started: '+fmtDate(p.dateStarted)+' ('+daysSince(p.dateStarted)+'d ago)</div>' : '')+
+          (noteText ? '<div class="print-tl-note">' + escapeHtml(noteText.split('\n')[0].slice(0,140)) + '</div>' : '')+
+        '</div>'+
+      '</div>';
+    }).join('');
+  }
+
+  document.getElementById('printBody').innerHTML = html;
+  document.getElementById('printOverlay').classList.add('visible');
+}
+
+function closePrintOverlay() {
+  document.getElementById('printOverlay').classList.remove('visible');
+}
+
+function sharePrint() {
+  // Try Web Share API first (works great on iPad Safari)
+  var all = allProfiles();
+  var keys = Object.keys(all);
+  var now = new Date();
+  var dateStr = now.toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
+
+  // Build plain text for share
+  var text = 'Peptide Protocol Schedule — ' + dateStr + '\n\n';
+  keys.forEach(function(key) {
+    var p = all[key];
+    var r = calcResult(p.mgTotal, p.dilVol, p.doseMcg, p.route, p.sprayUl);
+    var doseStr = r.error ? fmtMcg(p.doseMcg) : fmtMcg(p.doseMcg) + ' / ' + r.value + ' ' + r.unit;
+    text += '• ' + p.name + '\n';
+    text += '  Schedule: ' + p.freq + '\n';
+    text += '  Dose: ' + doseStr + '\n';
+    if (p.dateStarted) text += '  Started: ' + fmtDate(p.dateStarted) + '\n';
+    if (notes[key]) text += '  Notes: ' + notes[key].split('\n')[0].slice(0,100) + '\n';
+    text += '\n';
+  });
+  text += 'Generated by Peptide Protocol Tracker v5.5';
+
+  if (navigator.share) {
+    navigator.share({ title: 'Peptide Protocol Schedule', text: text })
+      .then(function(){ flash('Shared successfully'); })
+      .catch(function(err){ if (err.name !== 'AbortError') { copyTextFallback(text); } });
+  } else {
+    copyTextFallback(text);
+  }
+}
+
+function copyTextFallback(text) {
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(function(){ flash('Copied to clipboard'); }).catch(function(){ execCopyFallback(text); });
+  } else {
+    execCopyFallback(text);
+  }
+}
+
+function execCopyFallback(text) {
+  var ta = document.createElement('textarea');
+  ta.value = text; ta.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;';
+  document.body.appendChild(ta); ta.focus(); ta.select();
+  var ok = false; try { ok = document.execCommand('copy'); } catch(e) { ok = false; }
+  document.body.removeChild(ta);
+  flash(ok ? 'Copied to clipboard' : 'Use Share button in Safari', ok ? 'ok' : 'info');
+}
+
+function copyPrintText() {
+  var all = allProfiles();
+  var keys = Object.keys(all);
+  var now = new Date();
+  var dateStr = now.toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
+  var text = 'Peptide Protocol Schedule — ' + dateStr + '\n\n';
+  keys.forEach(function(key) {
+    var p = all[key];
+    var r = calcResult(p.mgTotal, p.dilVol, p.doseMcg, p.route, p.sprayUl);
+    var doseStr = r.error ? fmtMcg(p.doseMcg) : fmtMcg(p.doseMcg) + ' / ' + r.value + ' ' + r.unit;
+    text += '• ' + p.name + ' | ' + p.freq + ' | ' + doseStr;
+    if (p.dateStarted) text += ' | Started: ' + fmtDate(p.dateStarted);
+    text += '\n';
+    if (notes[key]) text += '  ' + notes[key].split('\n')[0].slice(0,100) + '\n';
+  });
+  copyTextFallback(text);
+}
+
+function flash(msg, type) {
+  type=type||'ok';
+  var el=document.getElementById('flash');
+  el.textContent=msg;
+  el.className='flash show'+(type==='err'?' err':type==='info'?' info':'');
+  clearTimeout(el._t);
+  el._t=setTimeout(function(){ el.classList.remove('show'); },2400);
+}
+
+var _confirmCallback=null;
+function showConfirm(message, onConfirm, yesLabel) {
+  document.getElementById('confirmMessage').textContent=message;
+  document.getElementById('confirmYesBtn').textContent=yesLabel||'Yes, Remove';
+  _confirmCallback=onConfirm;
+  document.getElementById('confirmModal').classList.remove('hidden');
+}
+function closeConfirm() {
+  document.getElementById('confirmModal').classList.add('hidden');
+  _confirmCallback=null;
+}
+
+window.onload=function() {
+  loadState();
+  populateSelects();
+  syncProfile();
+  renderCards();
+  renderLedger();
+  updateStats();
+  updateSaveCounts();
+  showSaved();
+
+  // FIX: default logDateTime to now
+  document.getElementById('logDateTime').value = nowDateTimeLocal();
+
+  // FIX: default newDateStarted to today
+  document.getElementById('newDateStarted').value = todayDateStr();
+
+  document.getElementById('confirmYesBtn').addEventListener('click', function() {
+    var cb=_confirmCallback; closeConfirm(); if(cb) cb();
+  });
+  document.getElementById('editModal').addEventListener('click', function(e){ if(e.target===this) closeEditModal(); });
+  document.getElementById('invModal').addEventListener('click', function(e){ if(e.target===this) closeInvModal(); });
+  document.getElementById('backupModal').addEventListener('click', function(e){ if(e.target===this) closeBackupModal(); });
+  document.getElementById('confirmModal').addEventListener('click', function(e){ if(e.target===this) closeConfirm(); });
+};
+</script>
+</body>
+</html>
