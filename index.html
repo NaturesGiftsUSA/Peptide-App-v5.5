@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Peptide Protocol Tracker v5.11</title>
+<title>Peptide Protocol Tracker v5.12</title>
 <style>
 :root {
   --bg:#09090b; --bg-card:#111113; --bg-input:#18181b;
@@ -206,6 +206,24 @@ tr:last-child td{border-bottom:none;}
 
 .saved-badge{font-family:var(--mono);font-size:0.6rem;color:var(--green);background:var(--green-dim);border:1px solid rgba(34,197,94,0.2);padding:2px 7px;border-radius:4px;margin-left:auto;}
 
+/* SIMPLE CARD VIEW */
+.cmp-pull{margin:2px 0 10px;background:#0d1520;border:1px solid #1a2840;border-radius:8px;padding:10px 12px;display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:2px 8px;}
+.cmp-pull-lbl{font-family:var(--mono);font-size:0.6rem;text-transform:uppercase;letter-spacing:0.5px;color:#4a6080;white-space:nowrap;}
+.cmp-pull-val{font-family:var(--mono);font-size:1.35rem;font-weight:700;color:var(--orange);white-space:nowrap;}
+.cmp-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-bottom:8px;}
+.cmp-cell{background:var(--bg-input);border-radius:6px;padding:6px 8px;min-width:0;}
+.cmp-cell .k{font-family:var(--mono);font-size:0.55rem;text-transform:uppercase;color:var(--muted);letter-spacing:0.4px;}
+.cmp-cell .v{font-size:0.78rem;font-weight:600;line-height:1.25;overflow-wrap:anywhere;}
+.cmp-chips{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px;}
+.chip{font-family:var(--mono);font-size:0.6rem;padding:2px 7px;border-radius:4px;background:var(--bg-input);color:var(--muted);white-space:nowrap;}
+.chip.warn{background:var(--yellow-dim);color:var(--yellow);}
+.chip.bad{background:var(--red-dim);color:var(--red);}
+.chip.brk{background:var(--purple-dim);color:var(--purple);}
+.cmp-actions{display:flex;gap:6px;}
+.cmp-actions .btn-card-dose{margin-top:0;flex:1;}
+.cmp-icon{background:var(--bg-input);color:var(--muted);border:1px solid var(--border);border-radius:5px;padding:0 11px;font-size:0.8rem;cursor:pointer;-webkit-tap-highlight-color:transparent;}
+.view-btn{background:var(--card);color:var(--muted);border:1px solid var(--border);border-radius:6px;padding:6px 12px;font-size:0.72rem;font-weight:600;cursor:pointer;font-family:var(--mono);white-space:nowrap;}
+
 /* GOOGLE DRIVE SYNC */
 .cloud-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 20px;background:#0b1220;border-bottom:1px solid var(--border);font-family:var(--mono);font-size:0.68rem;}
 .cloud-status{display:flex;align-items:center;gap:7px;min-width:0;color:var(--muted);}
@@ -235,7 +253,7 @@ tr:last-child td{border-bottom:none;}
 <header class="site-header">
   <h1>PEPTIDE PROTOCOL <span>// TRACKER</span></h1>
   <div style="display:flex;align-items:center;gap:8px;">
-    <span class="ver">v5.11</span>
+    <span class="ver">v5.12</span>
     <button class="btn-save-backup" onclick="openBackupModal()">
       <span class="save-pulse"></span>💾 Save Backup
     </button>
@@ -292,7 +310,10 @@ tr:last-child td{border-bottom:none;}
     <div style="font-family:var(--mono);font-size:0.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;">
       Protocol Cards &nbsp;<span style="color:var(--border-hi)">— ✏️ edit protocol &nbsp;·&nbsp; 📦 edit inventory &nbsp;·&nbsp; ✓ log dose</span>
     </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;">
+    <button id="detailViewBtn" class="view-btn" onclick="toggleDetailView()">☰ Detailed view</button>
     <button id="archiveViewBtn" onclick="toggleArchiveView()" style="background:var(--card);color:var(--muted);border:1px solid var(--border);border-radius:6px;padding:6px 12px;font-size:0.72rem;font-weight:600;cursor:pointer;font-family:var(--mono);white-space:nowrap;">📥 View Archived (0)</button>
+    </div>
   </div>
   <div id="emptyState" style="display:none;text-align:center;padding:48px 20px;color:var(--muted);font-family:var(--mono);">
     <div style="font-size:2rem;margin-bottom:12px;">💉</div>
@@ -544,7 +565,7 @@ tr:last-child td{border-bottom:none;}
     </div>
     <div id="printBody"></div>
     <div class="print-footer">
-      <span>Peptide Protocol Tracker v5.11</span>
+      <span>Peptide Protocol Tracker v5.12</span>
       <span id="printFooterDate"></span>
     </div>
   </div>
@@ -630,6 +651,13 @@ function allProfiles() {
 }
 
 var viewArchived = false;
+var detailView = false;
+try { detailView = localStorage.getItem('smp_view_v1') === 'detail'; } catch(e){}
+function toggleDetailView() {
+  detailView = !detailView;
+  try { localStorage.setItem('smp_view_v1', detailView ? 'detail' : 'simple'); } catch(e){}
+  renderCards();
+}
 
 function activeProfiles() {
   var all=allProfiles(), out={};
@@ -870,6 +898,8 @@ function renderCards() {
   var expiringSoon=0, lowStock=0;
 
   var archBtn=document.getElementById('archiveViewBtn');
+  var viewBtn=document.getElementById('detailViewBtn');
+  if(viewBtn) viewBtn.textContent=detailView?'▤ Simple view':'☰ Detailed view';
   if(archBtn){
     archBtn.textContent=viewArchived?'← Back to Active Protocols':'📥 View Archived ('+Object.keys(archivedSet).length+')';
   }
@@ -920,6 +950,37 @@ function renderCards() {
     card.className='proto-card '+p.route+(p.archived?' archived':'');
     card.id='pcard-'+key;
     if(p.archived) card.style.opacity='0.72';
+
+    if(!detailView){
+      var amtUnit=p.doseUnit==='iu'?' IU':' mg';
+      var chips='';
+      chips+='<span class="chip'+(dosesLeft<=0?' bad':dosesLeft<=3?' warn':'')+'">'+(i.volRemaining>0||invSetUp?dosesLeft+' dose'+(dosesLeft!==1?'s':'')+' left':'no vial set up')+'</span>';
+      if(ex.status==='exp') chips+='<span class="chip bad">vial expired</span>';
+      else if(ex.status==='warn') chips+='<span class="chip warn">'+ex.daysLeft+'d stability left</span>';
+      if(invSetUp) chips+='<span class="chip'+(totalVials===0?' bad':totalVials<=2?' warn':'')+'">'+totalVials+' in stock</span>';
+      if(cyc&&cyc.phase==='break') chips+='<span class="chip brk">break · '+cyc.daysLeft+'d left</span>';
+      card.innerHTML=
+        '<div class="proto-top">'+
+          '<div class="proto-name">'+escapeHtml(p.name)+'</div>'+
+          '<div class="proto-badge '+badgeClass+'">'+badgeLabel+'</div>'+
+        '</div>'+
+        '<div class="cmp-pull"><span class="cmp-pull-lbl">'+(p.route==='nas'?'Sprays':'Syringe pull')+'</span><span class="cmp-pull-val">'+metric+'</span></div>'+
+        '<div class="cmp-grid">'+
+          '<div class="cmp-cell"><div class="k">Vial</div><div class="v">'+p.mgTotal+amtUnit+'</div></div>'+
+          '<div class="cmp-cell"><div class="k">Water</div><div class="v">'+p.dilVol+' mL</div></div>'+
+          '<div class="cmp-cell"><div class="k">Dose</div><div class="v">'+fmtDose(p)+'</div></div>'+
+        '</div>'+
+        '<div class="cmp-chips">'+chips+'</div>'+
+        '<div class="cmp-actions">'+
+          '<button class="btn-card-dose" onclick="'+(dosesLeft>0?'logDose':'promptNewVial')+'(\''+key+'\')" '+(p.archived?'disabled':'')+'>'+
+            (p.archived?'Archived':(dosesLeft>0?'✓ Log Dose':'🧪 Open New Vial'))+'</button>'+
+          '<button class="cmp-icon" title="Edit protocol" onclick="openEditModal(\''+key+'\')">✏️</button>'+
+          '<button class="cmp-icon" title="Inventory" onclick="openInvModal(\''+key+'\')">📦</button>'+
+          (p.archived?'<button class="cmp-icon" title="Restore to dashboard" onclick="toggleArchive(\''+key+'\')">↩️</button>':'')+
+        '</div>';
+      grid.appendChild(card);
+      return;
+    }
 
     card.innerHTML=
       '<div class="proto-top">'+
@@ -1119,7 +1180,7 @@ function saveInvModal() {
 }
 
 function buildBackupJSON() {
-  return JSON.stringify({ _version:'5.11', _exported:new Date().toISOString(), ledger:ledger, customs:customs, inv:inv, notes:notes }, null, 2);
+  return JSON.stringify({ _version:'5.12', _exported:new Date().toISOString(), ledger:ledger, customs:customs, inv:inv, notes:notes }, null, 2);
 }
 
 function openBackupModal() {
@@ -1485,7 +1546,7 @@ function sharePrint() {
     if (notes[key]) text += '  Notes: ' + notes[key].split('\n')[0].slice(0,100) + '\n';
     text += '\n';
   });
-  text += 'Generated by Peptide Protocol Tracker v5.11';
+  text += 'Generated by Peptide Protocol Tracker v5.12';
 
   if (navigator.share) {
     navigator.share({ title: 'Peptide Protocol Schedule', text: text })
@@ -1603,7 +1664,7 @@ function cloudSave() {
 function cloudHasToken() { return !!cloud.token && Date.now() < cloud.tokenExp - 60000; }
 
 function cloudDataObj() {
-  return { _version:'5.11', _saved:new Date().toISOString(), ledger:ledger, customs:customs, inv:inv, notes:notes };
+  return { _version:'5.12', _saved:new Date().toISOString(), ledger:ledger, customs:customs, inv:inv, notes:notes };
 }
 function cloudComparable(o) {
   return JSON.stringify({ ledger:o.ledger||[], customs:o.customs||{}, inv:o.inv||{}, notes:o.notes||{} });
