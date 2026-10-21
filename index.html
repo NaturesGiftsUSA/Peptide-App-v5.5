@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Peptide Protocol Tracker v5.8</title>
+<title>Peptide Protocol Tracker v5.9</title>
 <style>
 :root {
   --bg:#09090b; --bg-card:#111113; --bg-input:#18181b;
@@ -205,14 +205,32 @@ tr:last-child td{border-bottom:none;}
 .flash.info{background:var(--blue);color:#fff;}
 
 .saved-badge{font-family:var(--mono);font-size:0.6rem;color:var(--green);background:var(--green-dim);border:1px solid rgba(34,197,94,0.2);padding:2px 7px;border-radius:4px;margin-left:auto;}
+
+/* GOOGLE DRIVE SYNC */
+.cloud-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 20px;background:#0b1220;border-bottom:1px solid var(--border);font-family:var(--mono);font-size:0.68rem;}
+.cloud-status{display:flex;align-items:center;gap:7px;min-width:0;color:var(--muted);}
+.cloud-status span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.cloud-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;background:var(--muted);}
+.cloud-dot.ok{background:var(--green);box-shadow:0 0 5px var(--green);}
+.cloud-dot.syncing{background:var(--orange);box-shadow:0 0 5px var(--orange);}
+.cloud-dot.needs-tap{background:var(--yellow);box-shadow:0 0 5px var(--yellow);}
+.cloud-dot.error{background:var(--red);box-shadow:0 0 5px var(--red);}
+.cloud-btn{flex-shrink:0;background:var(--bg-input);color:var(--text);border:1px solid var(--border-hi);border-radius:6px;padding:6px 11px;font-family:var(--mono);font-size:0.66rem;font-weight:700;cursor:pointer;white-space:nowrap;-webkit-tap-highlight-color:transparent;}
+.cloud-btn.primary{background:var(--blue);border-color:var(--blue);color:#fff;}
+.cloud-p{font-size:0.85rem;color:var(--muted);line-height:1.6;margin-bottom:10px;}
+.cloud-p b{color:var(--text);}
+.conflict-opt{display:block;background:var(--bg-input);border:1px solid var(--border-hi);border-radius:8px;padding:12px;margin-top:10px;cursor:pointer;text-align:left;width:100%;color:var(--text);font-family:var(--sans);}
+.conflict-opt .t{font-weight:700;font-size:0.88rem;margin-bottom:4px;}
+.conflict-opt .d{font-family:var(--mono);font-size:0.68rem;color:var(--muted);}
 </style>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
 
 <header class="site-header">
   <h1>PEPTIDE PROTOCOL <span>// TRACKER</span></h1>
   <div style="display:flex;align-items:center;gap:8px;">
-    <span class="ver">v5.8</span>
+    <span class="ver">v5.9</span>
     <button class="btn-save-backup" onclick="openBackupModal()">
       <span class="save-pulse"></span>💾 Save Backup
     </button>
@@ -225,6 +243,11 @@ tr:last-child td{border-bottom:none;}
     <span class="save-text" id="saveText">All data saved to device</span>
   </div>
   <span class="save-counts" id="saveCounts"></span>
+</div>
+
+<div class="cloud-bar" id="cloudBar">
+  <div class="cloud-status"><div class="cloud-dot off" id="cloudDot"></div><span id="cloudText">Saved on this device only</span></div>
+  <button class="cloud-btn primary" id="cloudBtn" onclick="cloudBtnClick()">Sign in with Google</button>
 </div>
 
 <nav class="nav">
@@ -503,9 +526,42 @@ tr:last-child td{border-bottom:none;}
     </div>
     <div id="printBody"></div>
     <div class="print-footer">
-      <span>Peptide Protocol Tracker v5.8</span>
+      <span>Peptide Protocol Tracker v5.9</span>
       <span id="printFooterDate"></span>
     </div>
+  </div>
+</div>
+
+<!-- GOOGLE DRIVE: INTRO -->
+<div class="modal-overlay hidden" id="cloudIntroModal">
+  <div class="modal" style="max-width:420px;">
+    <div class="modal-title" style="color:var(--blue);"><span style="width:6px;height:6px;border-radius:50%;background:var(--blue);display:inline-block;flex-shrink:0"></span>Save to Google Drive</div>
+    <p class="cloud-p">Right now your data is saved <b>only in this browser</b>. Clearing your cookies or browsing data would erase it.</p>
+    <p class="cloud-p">Sign in with Google to also save it to <b>your own Google Drive</b>, so it's permanent and works on any device. The app can only see its own private file &mdash; nothing else in your Drive.</p>
+    <p class="cloud-p">This is optional. You can keep using the app without signing in.</p>
+    <button class="btn-primary" onclick="cloudSignIn()">Sign in with Google</button>
+    <button class="btn-primary" style="background:var(--bg-input);color:var(--muted);border:1px solid var(--border);margin-top:8px;" onclick="closeCloudIntro()">Not now</button>
+  </div>
+</div>
+
+<!-- GOOGLE DRIVE: OPTIONS -->
+<div class="modal-overlay hidden" id="cloudOptionsModal">
+  <div class="modal" style="max-width:420px;">
+    <div class="modal-title" style="color:var(--green);"><span style="width:6px;height:6px;border-radius:50%;background:var(--green);display:inline-block;flex-shrink:0"></span>Google Drive</div>
+    <p class="cloud-p">Saving to <b id="cloudOptEmail"></b>.<br>Last synced: <b id="cloudOptLast"></b></p>
+    <button class="btn-primary" onclick="closeCloudOptions(); cloudSync();">Sync now</button>
+    <button class="btn-primary" style="background:var(--red-dim);color:var(--red);border:1px solid rgba(239,68,68,0.25);margin-top:8px;" onclick="cloudDisconnect()">Disconnect</button>
+    <button class="btn-primary" style="background:var(--bg-input);color:var(--muted);border:1px solid var(--border);margin-top:8px;" onclick="closeCloudOptions()">Close</button>
+  </div>
+</div>
+
+<!-- GOOGLE DRIVE: CONFLICT -->
+<div class="modal-overlay hidden" id="cloudConflictModal">
+  <div class="modal" style="max-width:440px;">
+    <div class="modal-title" style="color:var(--yellow);"><span style="width:6px;height:6px;border-radius:50%;background:var(--yellow);display:inline-block;flex-shrink:0"></span>Which data should we keep?</div>
+    <p class="cloud-p">Your Google Drive and this device have different data. Pick the one to keep &mdash; the other will be replaced. <b>Tip:</b> tap Save Backup first if you're unsure.</p>
+    <button class="conflict-opt" id="conflictUseDrive" onclick="resolveConflict(true)"><div class="t">&#9729;&#65039; Use Google Drive data</div><div class="d" id="conflictDrive"></div></button>
+    <button class="conflict-opt" id="conflictUseLocal" onclick="resolveConflict(false)"><div class="t">&#128241; Use this device's data</div><div class="d" id="conflictLocal"></div></button>
   </div>
 </div>
 
@@ -540,6 +596,7 @@ function persist(which) {
   if (which==='inv'   ||which==='all') localStorage.setItem(LS_INV,    JSON.stringify(inv));
   if (which==='notes' ||which==='all') localStorage.setItem(LS_NOTES,  JSON.stringify(notes));
   setTimeout(showSaved, 500);
+  cloudOnLocalChange();
 }
 
 function getInv(key) {
@@ -1039,7 +1096,7 @@ function saveInvModal() {
 }
 
 function buildBackupJSON() {
-  return JSON.stringify({ _version:'5.8', _exported:new Date().toISOString(), ledger:ledger, customs:customs, inv:inv, notes:notes }, null, 2);
+  return JSON.stringify({ _version:'5.9', _exported:new Date().toISOString(), ledger:ledger, customs:customs, inv:inv, notes:notes }, null, 2);
 }
 
 function openBackupModal() {
@@ -1402,7 +1459,7 @@ function sharePrint() {
     if (notes[key]) text += '  Notes: ' + notes[key].split('\n')[0].slice(0,100) + '\n';
     text += '\n';
   });
-  text += 'Generated by Peptide Protocol Tracker v5.8';
+  text += 'Generated by Peptide Protocol Tracker v5.9';
 
   if (navigator.share) {
     navigator.share({ title: 'Peptide Protocol Schedule', text: text })
@@ -1469,6 +1526,260 @@ function closeConfirm() {
   _confirmCallback=null;
 }
 
+// ===== GOOGLE DRIVE SYNC (optional) =====
+// Each person who signs in gets their data saved to a private app folder in THEIR OWN Google Drive.
+// Without signing in, the app works exactly as before (browser storage only).
+var GOOGLE_CLIENT_ID = '196719487886-vovam12ajsr0d1ub723ms2s5496m2js3.apps.googleusercontent.com';
+var CLOUD_SCOPE = 'https://www.googleapis.com/auth/drive.appdata https://www.googleapis.com/auth/userinfo.email';
+var CLOUD_FILE = 'peptide-data.json';
+var LS_CLOUD = 'smp_cloud_v1';
+
+var cloud = { enabled:false, email:'', fileId:'', lastRemote:'', dirty:false, rev:0, lastSync:'', token:'', tokenExp:0 };
+var cloudTokenClient = null;
+var cloudPushTimer = null;
+var cloudBusy = false;
+var cloudPendingAfterToken = null;
+
+function cloudLoad() {
+  try { var c = JSON.parse(localStorage.getItem(LS_CLOUD)); if (c) cloud = Object.assign(cloud, c); } catch(e){}
+}
+function cloudSave() {
+  try { localStorage.setItem(LS_CLOUD, JSON.stringify(cloud)); } catch(e){}
+}
+function cloudHasToken() { return !!cloud.token && Date.now() < cloud.tokenExp - 60000; }
+
+function cloudDataObj() {
+  return { _version:'5.9', _saved:new Date().toISOString(), ledger:ledger, customs:customs, inv:inv, notes:notes };
+}
+function cloudComparable(o) {
+  return JSON.stringify({ ledger:o.ledger||[], customs:o.customs||{}, inv:o.inv||{}, notes:o.notes||{} });
+}
+function localIsEmpty() {
+  var noteCount = Object.values(notes).filter(function(v){ return v && String(v).trim(); }).length;
+  return ledger.length===0 && Object.keys(customs).length===0 && noteCount===0;
+}
+function applyCloudData(o) {
+  ledger  = o.ledger  || [];
+  customs = o.customs || {};
+  inv     = o.inv     || {};
+  notes   = o.notes   || {};
+  localStorage.setItem(LS_LEDGER, JSON.stringify(ledger));
+  localStorage.setItem(LS_CUSTOM, JSON.stringify(customs));
+  localStorage.setItem(LS_INV,    JSON.stringify(inv));
+  localStorage.setItem(LS_NOTES,  JSON.stringify(notes));
+  populateSelects(); syncProfile(); renderCards(); renderLedger(); updateStats(); updateSaveCounts();
+}
+
+// ---- UI ----
+function cloudSetStatus(state, text) {
+  var bar = document.getElementById('cloudBar');
+  var dot = document.getElementById('cloudDot');
+  var txt = document.getElementById('cloudText');
+  var btn = document.getElementById('cloudBtn');
+  if (!bar) return;
+  dot.className = 'cloud-dot ' + state;
+  txt.textContent = text;
+  if (!cloud.enabled) { btn.textContent = 'Sign in with Google'; btn.className = 'cloud-btn primary'; }
+  else if (state === 'needs-tap' || state === 'error') { btn.textContent = 'Tap to sync'; btn.className = 'cloud-btn primary'; }
+  else { btn.textContent = 'Options'; btn.className = 'cloud-btn'; }
+}
+function cloudRefreshUI() {
+  if (!cloud.enabled) { cloudSetStatus('off', 'Saved on this device only · sign in to keep it permanently'); return; }
+  if (!cloudHasToken()) { cloudSetStatus('needs-tap', 'Google Drive: tap to sync' + (cloud.dirty ? ' (unsaved changes)' : '')); return; }
+  if (cloud.dirty) { cloudSetStatus('syncing', 'Saving to Google Drive…'); return; }
+  cloudSetStatus('ok', 'Saved to Google Drive' + (cloud.email ? ' · ' + cloud.email : ''));
+}
+function cloudBtnClick() {
+  if (!cloud.enabled) { openCloudIntro(); return; }
+  if (!cloudHasToken()) { cloudRequestToken(function(){ cloudSync(); }); return; }
+  openCloudOptions();
+}
+function openCloudIntro() { document.getElementById('cloudIntroModal').classList.remove('hidden'); }
+function closeCloudIntro() { document.getElementById('cloudIntroModal').classList.add('hidden'); }
+function openCloudOptions() {
+  document.getElementById('cloudOptEmail').textContent = cloud.email || 'your Google account';
+  document.getElementById('cloudOptLast').textContent = cloud.lastSync ? new Date(cloud.lastSync).toLocaleString() : 'not yet';
+  document.getElementById('cloudOptionsModal').classList.remove('hidden');
+}
+function closeCloudOptions() { document.getElementById('cloudOptionsModal').classList.add('hidden'); }
+
+// ---- Sign in ----
+function cloudInitClient() {
+  if (cloudTokenClient || !(window.google && google.accounts && google.accounts.oauth2)) return !!cloudTokenClient;
+  cloudTokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: GOOGLE_CLIENT_ID,
+    scope: CLOUD_SCOPE,
+    callback: function(resp) {
+      if (resp && resp.access_token) {
+        cloud.token = resp.access_token;
+        cloud.tokenExp = Date.now() + (Number(resp.expires_in) || 3600) * 1000;
+        cloudSave();
+        var cb = cloudPendingAfterToken; cloudPendingAfterToken = null;
+        if (cb) cb();
+      } else {
+        cloudPendingAfterToken = null;
+        cloudRefreshUI();
+        flash('Google sign-in was cancelled', 'err');
+      }
+    },
+    error_callback: function(err) {
+      cloudPendingAfterToken = null;
+      cloudRefreshUI();
+      flash((err && err.type === 'popup_failed_to_open') ? 'Pop-up blocked — allow pop-ups for this site' : 'Google sign-in was cancelled', 'err');
+    }
+  });
+  return true;
+}
+function cloudRequestToken(then) {
+  if (!cloudInitClient()) { flash('Google sign-in is still loading — try again in a moment', 'err'); return; }
+  cloudPendingAfterToken = then;
+  var opts = { prompt: cloud.email ? '' : 'select_account' };
+  if (cloud.email) opts.login_hint = cloud.email;
+  cloudTokenClient.requestAccessToken(opts);
+}
+function cloudSignIn() {
+  closeCloudIntro();
+  cloudRequestToken(function() {
+    cloud.enabled = true;
+    cloud.dirty = !localIsEmpty();
+    cloudSave();
+    cloudFetchEmail().then(function(){ cloudSync(); });
+  });
+}
+function cloudDisconnect() {
+  closeCloudOptions();
+  showConfirm('Stop saving to Google Drive? Your data stays on this device and in your Drive — nothing is deleted.', function() {
+    try { if (cloud.token && window.google && google.accounts) google.accounts.oauth2.revoke(cloud.token, function(){}); } catch(e){}
+    cloud = { enabled:false, email:'', fileId:'', lastRemote:'', dirty:false, rev:0, lastSync:'', token:'', tokenExp:0 };
+    cloudSave(); cloudRefreshUI();
+    flash('Disconnected from Google Drive', 'info');
+  }, 'Yes, Disconnect');
+}
+
+// ---- Drive calls ----
+function cloudApi(url, opts) {
+  opts = opts || {};
+  opts.headers = Object.assign({ 'Authorization': 'Bearer ' + cloud.token }, opts.headers || {});
+  return fetch(url, opts).then(function(r) {
+    if (r.status === 401) { cloud.token = ''; cloud.tokenExp = 0; cloudSave(); throw { auth:true }; }
+    if (!r.ok) throw { status:r.status };
+    return r;
+  });
+}
+function cloudFetchEmail() {
+  return cloudApi('https://www.googleapis.com/oauth2/v3/userinfo').then(function(r){ return r.json(); })
+    .then(function(u){ if (u && u.email) { cloud.email = u.email; cloudSave(); } }).catch(function(){});
+}
+function cloudFindFile() {
+  var q = encodeURIComponent("name='" + CLOUD_FILE + "' and trashed=false");
+  return cloudApi('https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=' + q + '&fields=files(id,modifiedTime)&orderBy=modifiedTime desc')
+    .then(function(r){ return r.json(); })
+    .then(function(j){ return (j.files && j.files[0]) || null; });
+}
+function cloudDownload(id) {
+  return cloudApi('https://www.googleapis.com/drive/v3/files/' + id + '?alt=media').then(function(r){ return r.json(); });
+}
+function cloudUpload() {
+  var body = JSON.stringify(cloudDataObj());
+  if (cloud.fileId) {
+    return cloudApi('https://www.googleapis.com/upload/drive/v3/files/' + cloud.fileId + '?uploadType=media&fields=id,modifiedTime', {
+      method:'PATCH', headers:{ 'Content-Type':'application/json' }, body:body
+    }).then(function(r){ return r.json(); });
+  }
+  var boundary = 'pep' + Date.now();
+  var meta = JSON.stringify({ name:CLOUD_FILE, parents:['appDataFolder'], mimeType:'application/json' });
+  var multipart = '--' + boundary + '\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n' + meta +
+    '\r\n--' + boundary + '\r\nContent-Type: application/json\r\n\r\n' + body + '\r\n--' + boundary + '--';
+  return cloudApi('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,modifiedTime', {
+    method:'POST', headers:{ 'Content-Type':'multipart/related; boundary=' + boundary }, body:multipart
+  }).then(function(r){ return r.json(); });
+}
+function cloudMarkSynced(file, revAtStart) {
+  cloud.fileId = file.id; cloud.lastRemote = file.modifiedTime;
+  // If something changed while we were uploading, stay "dirty" so it gets saved next.
+  cloud.dirty = (revAtStart !== undefined) ? (cloud.rev !== revAtStart) : false;
+  cloud.lastSync = new Date().toISOString(); cloudSave(); cloudRefreshUI();
+}
+function cloudPush() {
+  var rev = cloud.rev;
+  return cloudUpload().then(function(f){ cloudMarkSynced(f, rev); if (cloud.dirty) cloudOnLocalChange(true); });
+}
+function cloudHandleError(e) {
+  cloudBusy = false;
+  if (e && e.auth) { cloudRefreshUI(); return; }
+  cloudSetStatus('error', 'Couldn’t reach Google Drive — your data is safe on this device');
+}
+
+// The main sync: decides whether to upload, download, or ask.
+function cloudSync() {
+  if (!cloud.enabled || cloudBusy) return;
+  if (!cloudHasToken()) { cloudRefreshUI(); return; }
+  cloudBusy = true;
+  cloudSetStatus('syncing', 'Syncing with Google Drive…');
+  cloudFindFile().then(function(file) {
+    if (!file) { cloud.fileId = ''; return cloudPush(); }
+    cloud.fileId = file.id;
+    var remoteChanged = file.modifiedTime !== cloud.lastRemote;
+    if (!remoteChanged) { return cloud.dirty ? cloudPush() : cloudMarkSynced(file); }
+    return cloudDownload(file.id).then(function(remote) {
+      var same = cloudComparable(remote) === cloudComparable(cloudDataObj());
+      if (same) return cloudMarkSynced(file);
+      if (!cloud.dirty || localIsEmpty()) { applyCloudData(remote); cloudMarkSynced(file); flash('Loaded your data from Google Drive', 'info'); return; }
+      cloudBusy = false;
+      openCloudConflict(remote, file);
+      return 'conflict';
+    });
+  }).then(function(res) { if (res !== 'conflict') cloudBusy = false; })
+    .catch(cloudHandleError);
+}
+
+// Called by persist() whenever anything is saved on this device.
+function cloudOnLocalChange(retry) {
+  if (!cloud.enabled) return;
+  if (!retry) cloud.rev++;
+  cloud.dirty = true; cloudSave();
+  if (!cloudHasToken()) { cloudRefreshUI(); return; }
+  cloudSetStatus('syncing', 'Saving to Google Drive…');
+  clearTimeout(cloudPushTimer);
+  cloudPushTimer = setTimeout(function() {
+    if (cloudBusy) { cloudPushTimer = setTimeout(function(){ cloudOnLocalChange(true); }, 1500); return; }
+    cloudSync();
+  }, 1500);
+}
+
+// ---- Conflict: this device and Drive both changed ----
+var cloudConflict = null;
+function cloudSummary(o) {
+  var n = Object.values(o.notes || {}).filter(function(v){ return v && String(v).trim(); }).length;
+  return Object.keys(o.customs || {}).length + ' protocols · ' + (o.ledger || []).length + ' log entries' + (n ? ' · ' + n + ' notes' : '');
+}
+function openCloudConflict(remote, file) {
+  cloudConflict = { remote:remote, file:file };
+  document.getElementById('conflictDrive').textContent = cloudSummary(remote) + (remote._saved ? ' (saved ' + new Date(remote._saved).toLocaleString() + ')' : '');
+  document.getElementById('conflictLocal').textContent = cloudSummary(cloudDataObj());
+  document.getElementById('cloudConflictModal').classList.remove('hidden');
+  cloudSetStatus('needs-tap', 'Choose which data to keep');
+}
+function resolveConflict(useDrive) {
+  document.getElementById('cloudConflictModal').classList.add('hidden');
+  var c = cloudConflict; cloudConflict = null;
+  if (!c) return;
+  cloudBusy = true;
+  var p;
+  if (useDrive) { applyCloudData(c.remote); cloudMarkSynced(c.file); flash('Using your Google Drive data', 'info'); p = Promise.resolve(); }
+  else { cloud.fileId = c.file.id; p = cloudPush().then(function(){ flash('Saved this device’s data to Google Drive', 'info'); }); }
+  p.then(function(){ cloudBusy = false; }).catch(cloudHandleError);
+}
+
+function cloudStart() {
+  cloudLoad();
+  cloudRefreshUI();
+  if (cloud.enabled && cloudHasToken()) cloudSync();
+  document.addEventListener('visibilitychange', function() {
+    if (document.visibilityState === 'visible' && cloud.enabled && cloudHasToken()) cloudSync();
+  });
+}
+
 window.onload=function() {
   loadState();
   populateSelects();
@@ -1492,6 +1803,9 @@ window.onload=function() {
   document.getElementById('invModal').addEventListener('click', function(e){ if(e.target===this) closeInvModal(); });
   document.getElementById('backupModal').addEventListener('click', function(e){ if(e.target===this) closeBackupModal(); });
   document.getElementById('confirmModal').addEventListener('click', function(e){ if(e.target===this) closeConfirm(); });
+  document.getElementById('cloudIntroModal').addEventListener('click', function(e){ if(e.target===this) closeCloudIntro(); });
+  document.getElementById('cloudOptionsModal').addEventListener('click', function(e){ if(e.target===this) closeCloudOptions(); });
+  cloudStart();
 };
 </script>
 </body>
