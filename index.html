@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Peptide Protocol Tracker v5.9</title>
+<title>Peptide Protocol Tracker v5.10</title>
 <style>
 :root {
   --bg:#09090b; --bg-card:#111113; --bg-input:#18181b;
@@ -235,7 +235,7 @@ tr:last-child td{border-bottom:none;}
 <header class="site-header">
   <h1>PEPTIDE PROTOCOL <span>// TRACKER</span></h1>
   <div style="display:flex;align-items:center;gap:8px;">
-    <span class="ver">v5.9</span>
+    <span class="ver">v5.10</span>
     <button class="btn-save-backup" onclick="openBackupModal()">
       <span class="save-pulse"></span>💾 Save Backup
     </button>
@@ -492,6 +492,8 @@ tr:last-child td{border-bottom:none;}
       Save Data Backup
     </div>
     <div style="background:#071007;border:1px solid rgba(34,197,94,0.15);border-radius:6px;padding:10px 12px;margin-bottom:12px;font-family:var(--mono);font-size:0.65rem;color:#4a8a4a;line-height:1.6;" id="backupPreview"></div>
+    <button id="backupDriveBtn" onclick="backupToDriveClick()" style="width:100%;background:var(--blue);color:#fff;font-weight:700;font-size:0.88rem;padding:12px;border-radius:6px;border:none;font-family:var(--sans);cursor:pointer;margin-bottom:4px;">☁️ Save Backup to Google Drive</button>
+    <p id="backupDriveNote" style="font-size:0.72rem;color:var(--muted);margin-bottom:12px;line-height:1.5;text-align:center;"></p>
     <button id="backupDownloadBtn" onclick="downloadBackup()" style="width:100%;background:linear-gradient(135deg,#0d1f2d,#091520);color:var(--cyan);border:1px solid rgba(34,211,238,0.3);font-weight:700;font-size:0.88rem;padding:12px;border-radius:6px;font-family:var(--sans);cursor:pointer;margin-bottom:6px;">⬇️ Download Backup (.json)</button>
     <button id="backupCopyBtn" onclick="tryCopyBackup()" style="width:100%;background:var(--green);color:#000;font-weight:700;font-size:0.88rem;padding:12px;border-radius:6px;border:none;font-family:var(--sans);cursor:pointer;margin-bottom:8px;">📋 Copy to Clipboard</button>
     <p style="font-size:0.75rem;color:var(--muted);margin-bottom:10px;line-height:1.5;text-align:center;">If copy doesn't work, select all text below and copy manually.</p>
@@ -531,7 +533,7 @@ tr:last-child td{border-bottom:none;}
     </div>
     <div id="printBody"></div>
     <div class="print-footer">
-      <span>Peptide Protocol Tracker v5.9</span>
+      <span>Peptide Protocol Tracker v5.10</span>
       <span id="printFooterDate"></span>
     </div>
   </div>
@@ -553,7 +555,7 @@ tr:last-child td{border-bottom:none;}
 <div class="modal-overlay hidden" id="cloudOptionsModal">
   <div class="modal" style="max-width:420px;">
     <div class="modal-title" style="color:var(--green);"><span style="width:6px;height:6px;border-radius:50%;background:var(--green);display:inline-block;flex-shrink:0"></span>Google Drive</div>
-    <p class="cloud-p">Saving to <b id="cloudOptEmail"></b>.<br>Last synced: <b id="cloudOptLast"></b></p>
+    <p class="cloud-p">Saving to <b id="cloudOptEmail"></b>.<br>Last synced: <b id="cloudOptLast"></b><br>Last backup copy: <b id="cloudOptBackup"></b></p>
     <button class="btn-primary" onclick="closeCloudOptions(); cloudSync();">Sync now</button>
     <button class="btn-primary" style="background:var(--red-dim);color:var(--red);border:1px solid rgba(239,68,68,0.25);margin-top:8px;" onclick="cloudDisconnect()">Disconnect</button>
     <button class="btn-primary" style="background:var(--bg-input);color:var(--muted);border:1px solid var(--border);margin-top:8px;" onclick="closeCloudOptions()">Close</button>
@@ -605,7 +607,9 @@ function persist(which) {
 }
 
 function getInv(key) {
-  return inv[key] || defaultInv();
+  var i = Object.assign(defaultInv(), inv[key] || {});
+  i.vials = Number(i.vials) || 0; i.volRemaining = Number(i.volRemaining) || 0;
+  return i;
 }
 
 function allProfiles() {
@@ -664,6 +668,12 @@ function nowDateTimeLocal() {
   var now = new Date();
   var pad = function(n){ return String(n).padStart(2,'0'); };
   return now.getFullYear()+'-'+pad(now.getMonth()+1)+'-'+pad(now.getDate())+'T'+pad(now.getHours())+':'+pad(now.getMinutes());
+}
+
+function isoToLocalInput(iso) {
+  var d = new Date(iso); if (isNaN(d)) return nowDateTimeLocal();
+  var pad = function(n){ return String(n).padStart(2,'0'); };
+  return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+'T'+pad(d.getHours())+':'+pad(d.getMinutes());
 }
 
 function todayDateStr() {
@@ -1101,7 +1111,7 @@ function saveInvModal() {
 }
 
 function buildBackupJSON() {
-  return JSON.stringify({ _version:'5.9', _exported:new Date().toISOString(), ledger:ledger, customs:customs, inv:inv, notes:notes }, null, 2);
+  return JSON.stringify({ _version:'5.10', _exported:new Date().toISOString(), ledger:ledger, customs:customs, inv:inv, notes:notes }, null, 2);
 }
 
 function openBackupModal() {
@@ -1114,6 +1124,7 @@ function openBackupModal() {
   document.getElementById('backupCopyBtn').style.background='var(--green)';
   document.getElementById('backupDownloadBtn').textContent='⬇️ Download Backup (.json)';
   document.getElementById('backupDownloadBtn').style.color='var(--cyan)';
+  updateBackupDriveUI();
   document.getElementById('backupModal').classList.remove('hidden');
 }
 
@@ -1232,13 +1243,18 @@ function editLog(i) {
   document.getElementById('editIdx').value=i;
   document.getElementById('logBtn').textContent='✏️ Update Entry';
   // FIX: always populate datetime, fallback to now if tsISO missing
-  document.getElementById('logDateTime').value=e.tsISO ? e.tsISO.slice(0,16) : nowDateTimeLocal();
+  document.getElementById('logDateTime').value=e.tsISO ? isoToLocalInput(e.tsISO) : nowDateTimeLocal();
   switchTab('ledger'); window.scrollTo({top:0,behavior:'smooth'});
 }
 
 function delLog(i) {
   showConfirm('Remove this log entry? This cannot be undone.', function() {
-    ledger.splice(i,1); persist('ledger'); renderLedger(); updateStats(); updateSaveCounts();
+    ledger.splice(i,1);
+    if (document.getElementById('editIdx').value!=='') {
+      document.getElementById('editIdx').value=''; document.getElementById('logBtn').textContent='💾 Save Log Entry';
+      document.getElementById('logDose').value=''; document.getElementById('logNotes').value='';
+    }
+    persist('ledger'); renderLedger(); updateStats(); updateSaveCounts();
   });
 }
 
@@ -1464,7 +1480,7 @@ function sharePrint() {
     if (notes[key]) text += '  Notes: ' + notes[key].split('\n')[0].slice(0,100) + '\n';
     text += '\n';
   });
-  text += 'Generated by Peptide Protocol Tracker v5.9';
+  text += 'Generated by Peptide Protocol Tracker v5.10';
 
   if (navigator.share) {
     navigator.share({ title: 'Peptide Protocol Schedule', text: text })
@@ -1535,11 +1551,11 @@ function closeConfirm() {
 // Each person who signs in gets their data saved to a private app folder in THEIR OWN Google Drive.
 // Without signing in, the app works exactly as before (browser storage only).
 var GOOGLE_CLIENT_ID = '196719487886-vovam12ajsr0d1ub723ms2s5496m2js3.apps.googleusercontent.com';
-var CLOUD_SCOPE = 'https://www.googleapis.com/auth/drive.appdata https://www.googleapis.com/auth/userinfo.email';
+var CLOUD_SCOPE = 'https://www.googleapis.com/auth/drive.appdata https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.email';
 var CLOUD_FILE = 'peptide-data.json';
 var LS_CLOUD = 'smp_cloud_v1';
 
-var cloud = { enabled:false, email:'', fileId:'', lastRemote:'', dirty:false, rev:0, lastSync:'', token:'', tokenExp:0 };
+var cloud = { enabled:false, email:'', fileId:'', lastRemote:'', dirty:false, rev:0, lastSync:'', token:'', tokenExp:0, backupFolderId:'', lastBackup:'', backupGranted:false };
 var cloudTokenClient = null;
 var cloudPushTimer = null;
 var cloudBusy = false;
@@ -1554,7 +1570,7 @@ function cloudSave() {
 function cloudHasToken() { return !!cloud.token && Date.now() < cloud.tokenExp - 60000; }
 
 function cloudDataObj() {
-  return { _version:'5.9', _saved:new Date().toISOString(), ledger:ledger, customs:customs, inv:inv, notes:notes };
+  return { _version:'5.10', _saved:new Date().toISOString(), ledger:ledger, customs:customs, inv:inv, notes:notes };
 }
 function cloudComparable(o) {
   return JSON.stringify({ ledger:o.ledger||[], customs:o.customs||{}, inv:o.inv||{}, notes:o.notes||{} });
@@ -1604,6 +1620,7 @@ function closeCloudIntro() { document.getElementById('cloudIntroModal').classLis
 function openCloudOptions() {
   document.getElementById('cloudOptEmail').textContent = cloud.email || 'your Google account';
   document.getElementById('cloudOptLast').textContent = cloud.lastSync ? new Date(cloud.lastSync).toLocaleString() : 'not yet';
+  updateBackupDriveUI();
   document.getElementById('cloudOptionsModal').classList.remove('hidden');
 }
 function closeCloudOptions() { document.getElementById('cloudOptionsModal').classList.add('hidden'); }
@@ -1618,6 +1635,7 @@ function cloudInitClient() {
       if (resp && resp.access_token) {
         cloud.token = resp.access_token;
         cloud.tokenExp = Date.now() + (Number(resp.expires_in) || 3600) * 1000;
+        cloud.backupGranted = String(resp.scope || '').indexOf('auth/drive.file') >= 0;
         cloudSave();
         var cb = cloudPendingAfterToken; cloudPendingAfterToken = null;
         if (cb) cb();
@@ -1655,7 +1673,7 @@ function cloudDisconnect() {
   closeCloudOptions();
   showConfirm('Stop saving to Google Drive? Your data stays on this device and in your Drive — nothing is deleted.', function() {
     try { if (cloud.token && window.google && google.accounts) google.accounts.oauth2.revoke(cloud.token, function(){}); } catch(e){}
-    cloud = { enabled:false, email:'', fileId:'', lastRemote:'', dirty:false, rev:0, lastSync:'', token:'', tokenExp:0 };
+    cloud = { enabled:false, email:'', fileId:'', lastRemote:'', dirty:false, rev:0, lastSync:'', token:'', tokenExp:0, backupFolderId:'', lastBackup:'', backupGranted:false };
     cloudSave(); cloudRefreshUI();
     flash('Disconnected from Google Drive', 'info');
   }, 'Yes, Disconnect');
@@ -1704,6 +1722,7 @@ function cloudMarkSynced(file, revAtStart) {
   // If something changed while we were uploading, stay "dirty" so it gets saved next.
   cloud.dirty = (revAtStart !== undefined) ? (cloud.rev !== revAtStart) : false;
   cloud.lastSync = new Date().toISOString(); cloudSave(); cloudRefreshUI();
+  setTimeout(cloudMaybeAutoBackup, 1500);
 }
 function cloudPush() {
   var rev = cloud.rev;
@@ -1774,6 +1793,92 @@ function resolveConflict(useDrive) {
   if (useDrive) { applyCloudData(c.remote); cloudMarkSynced(c.file); flash('Using your Google Drive data', 'info'); p = Promise.resolve(); }
   else { cloud.fileId = c.file.id; p = cloudPush().then(function(){ flash('Saved this device’s data to Google Drive', 'info'); }); }
   p.then(function(){ cloudBusy = false; }).catch(cloudHandleError);
+}
+
+// ===== DRIVE BACKUPS (dated snapshots in a visible "Peptide App Backups" folder) =====
+var BACKUP_FOLDER = 'Peptide App Backups';
+var BACKUP_SCOPE = 'https://www.googleapis.com/auth/drive.file';
+var BACKUP_EVERY_MS = 7 * 24 * 3600 * 1000;
+var backupBusy = false;
+
+function cloudCreateFile(meta, body, contentType) {
+  var boundary = 'pep' + Date.now();
+  var multipart = '--' + boundary + '\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n' + JSON.stringify(meta) +
+    '\r\n--' + boundary + '\r\nContent-Type: ' + (contentType || 'application/json') + '\r\n\r\n' + (body || '') + '\r\n--' + boundary + '--';
+  return cloudApi('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name', {
+    method:'POST', headers:{ 'Content-Type':'multipart/related; boundary=' + boundary }, body:multipart
+  }).then(function(r){ return r.json(); });
+}
+function backupFindFolder() {
+  var check = cloud.backupFolderId
+    ? cloudApi('https://www.googleapis.com/drive/v3/files/' + cloud.backupFolderId + '?fields=id,trashed')
+        .then(function(r){ return r.json(); })
+        .then(function(f){ return (f && !f.trashed) ? f.id : null; })
+        .catch(function(e){ if (e && e.auth) throw e; return null; })
+    : Promise.resolve(null);
+  return check.then(function(id) {
+    if (id) return id;
+    var q = encodeURIComponent("name='" + BACKUP_FOLDER + "' and mimeType='application/vnd.google-apps.folder' and trashed=false");
+    return cloudApi('https://www.googleapis.com/drive/v3/files?q=' + q + '&fields=files(id)')
+      .then(function(r){ return r.json(); })
+      .then(function(j) {
+        if (j.files && j.files[0]) return j.files[0].id;
+        return cloudCreateFile({ name:BACKUP_FOLDER, mimeType:'application/vnd.google-apps.folder' }).then(function(f){ return f.id; });
+      });
+  }).then(function(id){ cloud.backupFolderId = id; cloudSave(); return id; });
+}
+function backupFileName() {
+  var d = new Date(), p = function(n){ return (n < 10 ? '0' : '') + n; };
+  return 'peptide-backup-' + d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + '_' + p(d.getHours()) + p(d.getMinutes()) + '.json';
+}
+// Sends a dated backup file to the visible Drive folder.
+function cloudBackupNow(auto) {
+  if (backupBusy || !cloud.enabled || !cloudHasToken()) return Promise.resolve(false);
+  if (!cloud.backupGranted) return Promise.resolve(false);
+  backupBusy = true;
+  return backupFindFolder().then(function(folderId) {
+    return cloudCreateFile({ name:backupFileName(), parents:[folderId], mimeType:'application/json' }, buildBackupJSON());
+  }).then(function() {
+    backupBusy = false;
+    cloud.lastBackup = new Date().toISOString(); cloudSave();
+    updateBackupDriveUI();
+    flash(auto ? 'Weekly backup saved to Google Drive' : 'Backup saved to Google Drive → ' + BACKUP_FOLDER, 'info');
+    return true;
+  }).catch(function(e) {
+    backupBusy = false;
+    if (e && e.status === 403) { cloud.backupGranted = false; cloudSave(); }
+    if (!auto) flash('Couldn’t save the backup to Google Drive', 'err');
+    updateBackupDriveUI();
+    return false;
+  });
+}
+function cloudMaybeAutoBackup() {
+  if (!cloud.enabled || !cloud.backupGranted || cloud.dirty || localIsEmpty()) return;
+  var last = cloud.lastBackup ? Date.parse(cloud.lastBackup) : 0;
+  if (Date.now() - last >= BACKUP_EVERY_MS) cloudBackupNow(true);
+}
+// Button in the Save Backup pop-up.
+function backupToDriveClick() {
+  if (!cloud.enabled) { closeBackupModal(); openCloudIntro(); return; }
+  if (cloudHasToken() && cloud.backupGranted) { cloudBackupNow(false); return; }
+  // Needs a fresh sign-in, or the one-time "see files this app creates" permission.
+  cloudRequestToken(function() { cloudSync(); cloudBackupNow(false); }, true);
+}
+function updateBackupDriveUI() {
+  var btn = document.getElementById('backupDriveBtn');
+  var note = document.getElementById('backupDriveNote');
+  if (!btn) return;
+  if (!cloud.enabled) {
+    btn.textContent = '☁️ Sign in to save backups to Google Drive';
+    note.textContent = 'Saves a dated copy to a "' + BACKUP_FOLDER + '" folder in your Google Drive, plus one automatically every week.';
+  } else {
+    btn.textContent = backupBusy ? 'Saving to Google Drive…' : '☁️ Save Backup to Google Drive';
+    note.textContent = cloud.lastBackup
+      ? 'Last Drive backup: ' + new Date(cloud.lastBackup).toLocaleString() + ' · a new one saves automatically every week.'
+      : 'Saves a dated copy to the "' + BACKUP_FOLDER + '" folder in your Google Drive. One also saves automatically every week.';
+  }
+  var opt = document.getElementById('cloudOptBackup');
+  if (opt) opt.textContent = cloud.lastBackup ? new Date(cloud.lastBackup).toLocaleString() : 'not yet';
 }
 
 function cloudStart() {
