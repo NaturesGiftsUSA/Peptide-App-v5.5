@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Peptide Protocol Tracker v5.10</title>
+<title>Peptide Protocol Tracker v5.11</title>
 <style>
 :root {
   --bg:#09090b; --bg-card:#111113; --bg-input:#18181b;
@@ -235,7 +235,7 @@ tr:last-child td{border-bottom:none;}
 <header class="site-header">
   <h1>PEPTIDE PROTOCOL <span>// TRACKER</span></h1>
   <div style="display:flex;align-items:center;gap:8px;">
-    <span class="ver">v5.10</span>
+    <span class="ver">v5.11</span>
     <button class="btn-save-backup" onclick="openBackupModal()">
       <span class="save-pulse"></span>💾 Save Backup
     </button>
@@ -503,6 +503,17 @@ tr:last-child td{border-bottom:none;}
 </div>
 
 <!-- CONFIRM MODAL -->
+<div class="modal-overlay hidden" id="newVialModal">
+  <div class="modal" style="max-width:400px;">
+    <div class="modal-title" style="color:var(--cyan);"><span style="width:6px;height:6px;border-radius:50%;background:var(--cyan);display:inline-block;flex-shrink:0"></span><span id="newVialTitle">Vial empty</span></div>
+    <p id="newVialMsg" style="font-size:0.85rem;color:var(--muted);line-height:1.6;margin-bottom:4px;"></p>
+    <div class="modal-actions">
+      <button id="newVialYesBtn" style="background:var(--cyan);color:#000;" onclick="openNewVial()">Yes, open new vial</button>
+      <button class="btn-cancel-modal" onclick="closeNewVial()">Not now</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay hidden" id="confirmModal">
   <div class="modal" style="max-width:380px;">
     <div class="modal-title" style="color:var(--red);">
@@ -533,7 +544,7 @@ tr:last-child td{border-bottom:none;}
     </div>
     <div id="printBody"></div>
     <div class="print-footer">
-      <span>Peptide Protocol Tracker v5.10</span>
+      <span>Peptide Protocol Tracker v5.11</span>
       <span id="printFooterDate"></span>
     </div>
   </div>
@@ -944,8 +955,8 @@ function renderCards() {
         '<button class="btn-card-archive" onclick="toggleArchive(\''+key+'\')" title="'+(p.archived?'Restore to active dashboard':'Archive this protocol')+'" style="background:'+(p.archived?'var(--green-dim)':'var(--card)')+';color:'+(p.archived?'var(--green)':'var(--muted)')+';border:1px solid '+(p.archived?'rgba(34,197,94,0.25)':'var(--border)')+';border-radius:5px;padding:7px 10px;font-size:0.72rem;font-weight:600;cursor:pointer;">'+(p.archived?'↩️':'📥')+'</button>'+
         (isCustom?'<button onclick="removeCustom(\''+key+'\')" title="Remove protocol" style="background:var(--red-dim);color:var(--red);border:1px solid rgba(239,68,68,0.15);border-radius:5px;padding:7px 10px;font-size:0.72rem;font-weight:600;cursor:pointer;">🗑</button>':'')+
       '</div>'+
-      '<button class="btn-card-dose" onclick="logDose(\''+key+'\')" '+(p.archived||dosesLeft<=0?'disabled':'')+'>'+
-        (p.archived?'Archived — Restore to Log':(dosesLeft>0?'✓ Log Dose':'No Volume Remaining'))+
+      '<button class="btn-card-dose" onclick="'+(dosesLeft>0?'logDose':'promptNewVial')+'(\''+key+'\')" '+(p.archived?'disabled':'')+'>'+
+        (p.archived?'Archived — Restore to Log':(dosesLeft>0?'✓ Log Dose':'🧪 Vial empty — Open New Vial'))+
       '</button>';
 
     grid.appendChild(card);
@@ -969,12 +980,9 @@ function logDose(key) {
   var p=allProfiles()[key]; if(!p)return;
   var i=getInv(key);
   var ml=mlPerDose(p);
-  if (i.volRemaining<ml){ flash('Insufficient volume — update inventory','err'); return; }
+  if (i.volRemaining<ml){ promptNewVial(key); return; }
   i.volRemaining=Math.max(0,parseFloat((i.volRemaining-ml).toFixed(3)));
-  var vialEmpty=false;
-  if (i.volRemaining<=0&&i.vials>0){
-    i.vials=Math.max(0,i.vials-1); i.volRemaining=0; i.reconDate=''; vialEmpty=true;
-  }
+  var vialEmpty=i.volRemaining<ml;
   inv[key]=i; persist('inv');
   var r=calcResult(p.mgTotal,p.dilVol,p.doseMcg,p.route,p.sprayUl,p.doseUnit);
   var now=new Date();
@@ -987,8 +995,8 @@ function logDose(key) {
   });
   persist('ledger');
   renderCards(); renderLedger(); updateStats(); updateSaveCounts();
-  if (vialEmpty){ flash(p.name+': vial empty — open 📦 Inventory to log new vial','info'); }
-  else { flash(p.name+' dose logged'); }
+  flash(p.name+' dose logged');
+  if (vialEmpty) setTimeout(function(){ promptNewVial(key); }, 600);
 }
 
 function openEditModal(key) {
@@ -1111,7 +1119,7 @@ function saveInvModal() {
 }
 
 function buildBackupJSON() {
-  return JSON.stringify({ _version:'5.10', _exported:new Date().toISOString(), ledger:ledger, customs:customs, inv:inv, notes:notes }, null, 2);
+  return JSON.stringify({ _version:'5.11', _exported:new Date().toISOString(), ledger:ledger, customs:customs, inv:inv, notes:notes }, null, 2);
 }
 
 function openBackupModal() {
@@ -1197,11 +1205,8 @@ function saveLog() {
         var ml=mlPerDose(p);
         if(inv[key].volRemaining>=ml){
           inv[key].volRemaining=Math.max(0,parseFloat((inv[key].volRemaining-ml).toFixed(3)));
-          if(inv[key].volRemaining<=0&&inv[key].vials>0){
-            inv[key].vials=Math.max(0,inv[key].vials-1); inv[key].volRemaining=0; inv[key].reconDate='';
-            flash(name+': vial empty — open 📦 Inventory to log new vial','info');
-          }
           persist('inv'); updateSaveCounts(); renderCards();
+          if(inv[key].volRemaining<ml) setTimeout(function(){ promptNewVial(key); }, 600);
         }
       }
     }
@@ -1480,7 +1485,7 @@ function sharePrint() {
     if (notes[key]) text += '  Notes: ' + notes[key].split('\n')[0].slice(0,100) + '\n';
     text += '\n';
   });
-  text += 'Generated by Peptide Protocol Tracker v5.10';
+  text += 'Generated by Peptide Protocol Tracker v5.11';
 
   if (navigator.share) {
     navigator.share({ title: 'Peptide Protocol Schedule', text: text })
@@ -1535,6 +1540,34 @@ function flash(msg, type) {
   el._t=setTimeout(function(){ el.classList.remove('show'); },2400);
 }
 
+// ── EMPTY VIAL: ask before opening the next one ──
+var _newVialKey=null;
+function promptNewVial(key) {
+  var p=allProfiles()[key]; if(!p||p.archived) return;
+  var i=getInv(key);
+  _newVialKey=key;
+  document.getElementById('newVialTitle').textContent=p.name+' vial empty';
+  document.getElementById('newVialMsg').innerHTML=
+    'The open vial doesn\'t have enough left for another dose.<br><br>'+
+    (i.vials>0
+      ? 'Open a new vial from stock? <b style="color:var(--text)">Stock goes from '+i.vials+' to '+(i.vials-1)+'</b>, the new vial is set to '+p.dilVol+' mL, reconstituted today.'
+      : 'You have <b style="color:var(--text)">no sealed vials</b> recorded. Set up a new '+p.dilVol+' mL vial reconstituted today anyway? (Stock stays at 0.)')+
+    '<br><br>Choose <b style="color:var(--text)">Not now</b> if this protocol is finished.';
+  document.getElementById('newVialModal').classList.remove('hidden');
+}
+function closeNewVial() { document.getElementById('newVialModal').classList.add('hidden'); _newVialKey=null; }
+function openNewVial() {
+  var key=_newVialKey; closeNewVial();
+  var p=allProfiles()[key]; if(!p) return;
+  var i=getInv(key);
+  i.vials=Math.max(0,i.vials-1);
+  i.volRemaining=p.dilVol;
+  i.reconDate=todayDateStr();
+  inv[key]=i; persist('inv');
+  renderCards(); updateStats();
+  flash(p.name+': new vial opened');
+}
+
 var _confirmCallback=null;
 function showConfirm(message, onConfirm, yesLabel) {
   document.getElementById('confirmMessage').textContent=message;
@@ -1570,7 +1603,7 @@ function cloudSave() {
 function cloudHasToken() { return !!cloud.token && Date.now() < cloud.tokenExp - 60000; }
 
 function cloudDataObj() {
-  return { _version:'5.10', _saved:new Date().toISOString(), ledger:ledger, customs:customs, inv:inv, notes:notes };
+  return { _version:'5.11', _saved:new Date().toISOString(), ledger:ledger, customs:customs, inv:inv, notes:notes };
 }
 function cloudComparable(o) {
   return JSON.stringify({ ledger:o.ledger||[], customs:o.customs||{}, inv:o.inv||{}, notes:o.notes||{} });
@@ -1913,6 +1946,7 @@ window.onload=function() {
   document.getElementById('invModal').addEventListener('click', function(e){ if(e.target===this) closeInvModal(); });
   document.getElementById('backupModal').addEventListener('click', function(e){ if(e.target===this) closeBackupModal(); });
   document.getElementById('confirmModal').addEventListener('click', function(e){ if(e.target===this) closeConfirm(); });
+  document.getElementById('newVialModal').addEventListener('click', function(e){ if(e.target===this) closeNewVial(); });
   document.getElementById('cloudIntroModal').addEventListener('click', function(e){ if(e.target===this) closeCloudIntro(); });
   document.getElementById('cloudOptionsModal').addEventListener('click', function(e){ if(e.target===this) closeCloudOptions(); });
   cloudStart();
